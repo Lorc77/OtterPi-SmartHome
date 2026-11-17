@@ -1,31 +1,67 @@
 #!/bin/bash
 set -euo pipefail
 
-REPO_URL="https://github.com/Lorc77/LoggerPi-OtterPi.git"
+REPO_URL="https://github.com/Lorc77/OtterPi-SmartHome.git"
 BRANCH="main"
 ROLE="${1:-}"
 
-case "$ROLE" in
-    loggerpi)
-        INSTALL_SCRIPT="deploy/loggerpi/install.sh"
-        SERVICE_NAME="loggerpi.observer.service"
-        ;;
-    otterpi)
-        INSTALL_SCRIPT="deploy/otterpi/install.sh"
-        SERVICE_NAME="otterpi.observer.service"
-        ;;
-    *)
-        echo "Usage: sudo $0 {loggerpi|otterpi}"
-        exit 2
-        ;;
-esac
+SERVICE_NAME="otterpi-smarthome.observer.service"
+INSTALL_DIR="/opt/otterpi-smarthome"
+STATE_DIR="/var/lib/otterpi-smarthome"
+CONFIG_DIR="/etc/otterpi-smarthome"
+UPDATE_WRAPPER="/usr/local/sbin/otterpi-smarthome-update"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "This script must be run as root."
     exit 1
 fi
 
-TMP_DIR="$(mktemp -d /tmp/loggerpi-otterpi-update.XXXXXX)"
+case "$ROLE" in
+    smarthome)
+        INSTALL_SCRIPT="deploy/smarthome/install.sh"
+        ;;
+    uninstall)
+        PURGE=0
+        if [ "${2:-}" = "--purge" ]; then
+            PURGE=1
+        fi
+
+        echo "Stopping and disabling $SERVICE_NAME..."
+        systemctl stop "$SERVICE_NAME" 2>/dev/null || true
+        systemctl disable "$SERVICE_NAME" 2>/dev/null || true
+
+        echo "Removing service file..."
+        rm -f "/etc/systemd/system/$SERVICE_NAME"
+        systemctl daemon-reload
+
+        echo "Removing install directory $INSTALL_DIR..."
+        rm -rf "$INSTALL_DIR"
+
+        echo "Removing update wrapper $UPDATE_WRAPPER..."
+        rm -f "$UPDATE_WRAPPER"
+
+        if [ "$PURGE" -eq 1 ]; then
+            echo "Removing state directory $STATE_DIR..."
+            rm -rf "$STATE_DIR"
+            echo "Removing config directory $CONFIG_DIR..."
+            rm -rf "$CONFIG_DIR"
+        else
+            echo
+            echo "State directory $STATE_DIR kept (use --purge to remove)."
+            echo "Config directory $CONFIG_DIR kept (use --purge to remove)."
+        fi
+
+        echo
+        echo "OtterPi-SmartHome uninstalled."
+        exit 0
+        ;;
+    *)
+        echo "Usage: sudo $0 {smarthome|uninstall [--purge]}"
+        exit 2
+        ;;
+esac
+
+TMP_DIR="$(mktemp -d /tmp/otterpi-smarthome-update.XXXXXX)"
 
 cleanup() {
     rm -rf "$TMP_DIR"
@@ -35,9 +71,7 @@ trap cleanup EXIT
 echo "Fetching $REPO_URL ($BRANCH)..."
 git clone --depth 1 --branch "$BRANCH" "$REPO_URL" "$TMP_DIR/repo"
 
-# Setze Ausführbarkeit für install.sh-Dateien
-chmod +x "$TMP_DIR/repo/deploy/loggerpi/install.sh"
-chmod +x "$TMP_DIR/repo/deploy/otterpi/install.sh"
+chmod +x "$TMP_DIR/repo/deploy/smarthome/install.sh"
 
 REPO_DIR="$TMP_DIR/repo"
 COMMIT="$(git -C "$REPO_DIR" rev-parse HEAD)"
@@ -61,15 +95,13 @@ if ! systemctl is-active --quiet "$SERVICE_NAME"; then
     exit 1
 fi
 
-# Speichere Commit (für technische Debugging)
-printf '%s\n' "$COMMIT" > /opt/loggerpi-otterpi/DEPLOYED_COMMIT
+printf '%s\n' "$COMMIT" > /opt/otterpi-smarthome/DEPLOYED_COMMIT
 
-# Speichere Version (für Menschenlesbarkeit)
 VERSION=$(git -C "$REPO_DIR" describe --tags --exact-match 2>/dev/null || echo "dev")
-printf '%s\n' "$VERSION" > /opt/loggerpi-otterpi/DEPLOYED_VERSION
+printf '%s\n' "$VERSION" > /opt/otterpi-smarthome/DEPLOYED_VERSION
 
-chown root:root /opt/loggerpi-otterpi/DEPLOYED_COMMIT /opt/loggerpi-otterpi/DEPLOYED_VERSION
-chmod 0644 /opt/loggerpi-otterpi/DEPLOYED_COMMIT /opt/loggerpi-otterpi/DEPLOYED_VERSION
+chown root:root /opt/otterpi-smarthome/DEPLOYED_COMMIT /opt/otterpi-smarthome/DEPLOYED_VERSION
+chmod 0644 /opt/otterpi-smarthome/DEPLOYED_COMMIT /opt/otterpi-smarthome/DEPLOYED_VERSION
 
 echo
 echo "Deployment successful."

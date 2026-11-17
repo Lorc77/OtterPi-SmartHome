@@ -3,9 +3,9 @@ requires = ["setuptools>=75"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "loggerpi-otterpi"
-version = "1.15.2"
-description = "LoggerPi-OtterPi"
+name = "otterpi-smarthome"
+version = "0.1.0"
+description = "OtterPi-SmartHome"
 requires-python = ">=3.9"
 dependencies = ["pyserial>=3.5",]
 
@@ -19,8 +19,8 @@ dev = [
 testpaths = ["tests"]
 pythonpath = [
     "src",
-    "src/loggerpi_otterpi",
-    "src/loggerpi_otterpi/model",
+    "src/otterpi_smarthome",
+    "src/otterpi_smarthome/model",
 ]
 addopts = "-ra"
 

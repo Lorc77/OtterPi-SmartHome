@@ -1,0 +1,18 @@
+[Unit]
+Description=OtterPi-SmartHome Observer
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=makki
+Group=makki
+WorkingDirectory=/opt/otterpi-smarthome
+EnvironmentFile=/etc/otterpi-smarthome/smarthome.env
+Environment="PYTHONPATH=/opt/otterpi-smarthome:/opt/otterpi-smarthome/model"
+ExecStart=/usr/bin/python3 -m smarthome_observer
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

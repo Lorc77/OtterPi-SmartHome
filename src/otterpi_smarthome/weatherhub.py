@@ -155,6 +155,99 @@ class WeatherHubReader:
 
         return measurements
 
+    def measurements_from_packet(
+        self,
+        packet: GatewayPacket,
+    ) -> dict[str, Measurement]:
+        """Liefert die Measurements eines einzelnen Pakets.
+
+        Anders als ``read_measurements()`` werden nur die Measurements
+        dieses Pakets zurückgegeben, nicht die aller bekannten Sensoren.
+        """
+        if not isinstance(packet, GatewayPacket):
+            return {}
+        if not packet.decoded_values:
+            return {}
+
+        sensor_id = packet.sensor_id
+        received_at = self._reception_times.get(
+            sensor_id,
+            datetime.now(timezone.utc).isoformat(),
+        )
+        sensor_type = packet.sensor_type
+        decoded = packet.decoded_values
+        prefix = f"weatherhub_{sensor_id.lower()}"
+
+        fields_to_extract = {}
+
+        if sensor_type == 0x01:
+            fields_to_extract = {
+                "temperature_1": ("celsius", decoded.get("temperature_1")),
+                "temperature_2": ("celsius", decoded.get("temperature_2")),
+            }
+        elif sensor_type == 0x02:
+            fields_to_extract = {
+                "temperature": ("celsius", decoded.get("temperature")),
+            }
+        elif sensor_type == 0x03:
+            fields_to_extract = {
+                "temperature": ("celsius", decoded.get("temperature")),
+                "humidity": ("percent", decoded.get("humidity")),
+            }
+        elif sensor_type == 0x04:
+            fields_to_extract = {
+                "temperature": ("celsius", decoded.get("temperature")),
+                "humidity": ("percent", decoded.get("humidity")),
+            }
+        elif sensor_type == 0x07:
+            fields_to_extract = {
+                "temperature_indoor": ("celsius", decoded.get("temperature_indoor")),
+                "humidity_indoor": ("percent", decoded.get("humidity_indoor")),
+                "temperature_outdoor": ("celsius", decoded.get("temperature_outdoor")),
+                "humidity_outdoor": ("percent", decoded.get("humidity_outdoor")),
+            }
+        elif sensor_type == 0x0E:
+            fields_to_extract = {
+                "temperature": ("celsius", decoded.get("temperature")),
+                "humidity": ("percent", decoded.get("humidity")),
+            }
+        elif sensor_type == 0x10:
+            pass
+
+        measurements: dict[str, Measurement] = {}
+        for field_name, config in fields_to_extract.items():
+            unit = config[0]
+            value_dict = config[1]
+
+            if not isinstance(value_dict, dict):
+                continue
+
+            value = value_dict.get("value")
+            validity = "valid"
+            validity_reason = None
+
+            if value_dict.get("error"):
+                validity = "invalid"
+                validity_reason = "sensor_error"
+            elif value_dict.get("overflow"):
+                validity = "invalid"
+                validity_reason = "overflow"
+            elif self._is_stale(sensor_id):
+                validity = "stale"
+
+            measurement = Measurement(
+                value=value if validity in ("valid", "stale") else None,
+                unit=unit,
+                measured_at=received_at,
+                validity=validity,
+                source="weatherhub",
+                validity_reason=validity_reason,
+            )
+
+            measurements[f"{prefix}.{field_name}"] = measurement
+
+        return measurements
+
     def read_state(self) -> tuple[dict[str, object], dict[str, str]]:
         states: dict[str, object] = {}
         for sensor_id, packet in self._latest_packets.items():
