@@ -1,0 +1,129 @@
+#!/bin/bash
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+INSTALL_DIR="/opt/loggerpi-otterpi"
+SERVICE_NAME="otterpi.observer.service"
+SERVICE_FILE="$REPO_DIR/deploy/otterpi/$SERVICE_NAME"
+
+echo "Installing OtterPi to $INSTALL_DIR"
+
+install -d -o root -g root -m 0755 "$INSTALL_DIR"
+install -d -o root -g root -m 0755 "$INSTALL_DIR/model"
+
+OTTERPI_FILES=(
+    otterpi.py
+    otterpi_observer.py
+    otterpi_store.py
+    dashboard.py
+    dashboard_config.py
+    dashboard_constants.py
+    dashboard_data.py
+    dashboard_charts.py
+    admin.py
+    config_store.py
+    notifier.py
+    archive_batches.py
+    backup.py
+    sensor_schemas.py
+    alert_store.py
+    alert_engine.py
+    heartbeat.py
+    status.py
+    otter2.png
+)
+
+for file in "${OTTERPI_FILES[@]}"; do
+    install -o root -g root -m 0644 \
+        "$REPO_DIR/src/loggerpi_otterpi/$file" \
+        "$INSTALL_DIR/$file"
+done
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/src/loggerpi_otterpi/model/__init__.py" \
+    "$INSTALL_DIR/model/__init__.py"
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/src/loggerpi_otterpi/model/batch.py" \
+    "$INSTALL_DIR/model/batch.py"
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/src/loggerpi_otterpi/model/measurement.py" \
+    "$INSTALL_DIR/model/measurement.py"
+
+# Schreibe VERSION-Datei (für Menschenlesbarkeit)
+VERSION=$(grep '^version = ' "$REPO_DIR/pyproject.toml" | sed 's/version = "//;s/"//')
+printf '%s\n' "$VERSION" > "$INSTALL_DIR/VERSION"
+chown root:root "$INSTALL_DIR/VERSION"
+chmod 0644 "$INSTALL_DIR/VERSION"
+
+install -d -o root -g root -m 0755 /etc/loggerpi-otterpi
+
+if [ ! -f /etc/loggerpi-otterpi/otterpi.env ]; then
+    install -o root -g root -m 0640 \
+        "$REPO_DIR/deploy/otterpi/otterpi.env.example" \
+        /etc/loggerpi-otterpi/otterpi.env
+
+    echo
+    echo "Created /etc/loggerpi-otterpi/otterpi.env"
+    echo "Please review it before starting the service."
+fi
+
+install -o root -g root -m 0644 \
+    "$SERVICE_FILE" \
+    "/etc/systemd/system/$SERVICE_NAME"
+
+# Archivierungs-Service installieren
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/otterpi/archive-batches.service" \
+    "/etc/systemd/system/archive-batches.service"
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/otterpi/archive-batches.timer" \
+    "/etc/systemd/system/archive-batches.timer"
+
+# Backup-Service installieren
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/otterpi/backup.service" \
+    "/etc/systemd/system/backup.service"
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/otterpi/backup.timer" \
+    "/etc/systemd/system/backup.timer"
+
+install -d -o makki -g makki -m 0750 \
+    /var/lib/loggerpi-otterpi
+
+# Archiv-Verzeichnis anlegen
+install -d -o makki -g makki -m 0750 \
+    /var/lib/loggerpi-otterpi/archive
+
+systemctl daemon-reload
+systemctl enable "$SERVICE_NAME"
+systemctl enable --now archive-batches.timer
+systemctl enable --now backup.timer
+
+install -o root -g root -m 0755 \
+    "$REPO_DIR/deploy/update.sh" \
+    /usr/local/sbin/loggerpi-otterpi-update
+
+echo
+echo "OtterPi installation complete."
+echo
+echo "Check configuration:"
+echo "  sudoedit /etc/loggerpi-otterpi/otterpi.env"
+echo
+echo "Start service:"
+echo "  sudo systemctl restart $SERVICE_NAME"
+echo
+echo "Status:"
+echo "  systemctl status $SERVICE_NAME --no-pager"
+echo
+echo "Archive timer:"
+echo "  systemctl status archive-batches.timer --no-pager"
+echo
+echo "Backup timer:"
+echo "  systemctl status backup.timer --no-pager"
+echo
+echo "Current version:"
+echo "  cat /opt/loggerpi-otterpi/VERSION"

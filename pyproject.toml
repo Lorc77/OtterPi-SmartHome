@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=75"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "loggerpi-otterpi"
+version = "1.15.2"
+description = "LoggerPi-OtterPi"
+requires-python = ">=3.9"
+dependencies = ["pyserial>=3.5",]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.4,<9",
+    "ruff>=0.16.5,<0.17",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = [
+    "src",
+    "src/loggerpi_otterpi",
+    "src/loggerpi_otterpi/model",
+]
+addopts = "-ra"
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+exclude = [
+    "docs/legacy",
+    "docs/development/DEVELOPMENT-QUALITY.md",
+]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "F",
+    "I",
+    "UP",
+    "FA102",
+]
+
+[tool.ruff.lint.per-file-ignores]
+"src/loggerpi_otterpi/*.py" = ["UP006", "UP035"]
+"tests/*.py" = ["UP006", "UP035"]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"

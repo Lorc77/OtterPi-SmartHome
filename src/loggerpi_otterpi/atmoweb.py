@@ -1,0 +1,344 @@
+"""AtmoWEB-Reader für das LoggerPi-OtterPi-Datenmodell.
+
+Liest Messwerte und Zustände von MEMMERT AtmoWEB-Geräten (HPP260).
+
+`measured_at` wird einheitlich auf die LoggerPi-Empfangszeit (UTC)
+gesetzt. Die Gerätezeit wird separat als Attribut `device_time`
+verfügbar gemacht (für Diagnose/Zugriff bei Bedarf).
+"""
+
+import json
+from dataclasses import dataclass
+from datetime import datetime, timezone
+from typing import Any, Optional
+from urllib.parse import urlencode
+from urllib.request import Request, urlopen
+
+from model.measurement import Measurement
+
+
+@dataclass(frozen=True)
+class AtmoWebDevice:
+    host: str
+    port: int
+    serial_number: str
+    device_type: str
+    software_revision: Optional[str] = None
+
+
+class AtmoWebError(RuntimeError):
+    """Fehler bei der Kommunikation mit einem AtmoWEB-Gerät."""
+
+
+class AtmoWebReader:
+    """Read-only reader for Memmert AtmoWEB devices."""
+
+    def __init__(self, host: str, port: int = 80, timeout: float = 5.0) -> None:
+        self.host = host
+        self.port = port
+        self.timeout = timeout
+
+        # Gerätezeit (vom AtmoWEB geliefert), separat verfügbar
+        self.device_time: Optional[str] = None
+
+    @property
+    def base_url(self) -> str:
+        return f"http://{self.host}:{self.port}"
+
+    def _request(self, *keys: str) -> dict[str, Any]:
+        query = urlencode({key: "" for key in keys})
+        request = Request(
+            f"{self.base_url}/atmoweb?{query}",
+            method="GET",
+        )
+
+        try:
+            with urlopen(request, timeout=self.timeout) as response:
+                body = response.read().decode("utf-8")
+        except Exception as exc:
+            raise AtmoWebError(
+                f"AtmoWEB-Gerät {self.host}:{self.port} konnte nicht erreicht werden."
+            ) from exc
+
+        try:
+            # Standard: JSON-Fragment (reales AtmoWEB)
+            json_text = "{" + body.strip().rstrip(",") + "}"
+            data = json.loads(json_text)
+        except json.JSONDecodeError:
+            # Fallback: gültiges JSON (Tests / andere Geräte)
+            try:
+                data = json.loads(body)
+            except json.JSONDecodeError as exc:
+                raise AtmoWebError("AtmoWEB hat keine gültige JSON-Antwort geliefert.") from exc
+
+        if not isinstance(data, dict):
+            raise AtmoWebError("AtmoWEB-Antwort muss ein JSON-Objekt sein.")
+
+        return data
+
+    def identify(self) -> AtmoWebDevice:
+        data = self._request("SN", "DevType", "SWRev")
+
+        serial_number = data.get("SN")
+        device_type = data.get("DevType")
+
+        if not isinstance(serial_number, str) or not serial_number:
+            raise AtmoWebError("AtmoWEB liefert keine gültige Seriennummer (SN).")
+
+        if not isinstance(device_type, str) or not device_type:
+            raise AtmoWebError("AtmoWEB liefert keinen gültigen Gerätetyp (DevType).")
+
+        software_revision = data.get("SWRev")
+        if not isinstance(software_revision, str):
+            software_revision = None
+
+        return AtmoWebDevice(
+            host=self.host,
+            port=self.port,
+            serial_number=serial_number,
+            device_type=device_type,
+            software_revision=software_revision,
+        )
+
+    def read_measurements(self) -> dict[str, Measurement]:
+        data = self._request(
+            "Time",
+            "Temp1Read",
+            "Temp2Read",
+            "Temp3Read",
+            "Temp4Read",
+            "HumRead",
+            "VacRead",
+            "CO2Read",
+            "O2Read",
+            "FanRead",
+        )
+
+        # Gerätezeit separat merken (für Diagnose/Zugriff)
+        self.device_time = _parse_timestamp(data.get("Time"))
+
+        # Einheitlich: LoggerPi-Empfangszeit (UTC)
+        measured_at = datetime.now(timezone.utc).isoformat()
+
+        measurements: dict[str, Measurement] = {}
+
+        for key, name, unit in (
+            ("Temp1Read", "temperature_1", "celsius"),
+            ("Temp2Read", "temperature_2", "celsius"),
+            ("Temp3Read", "temperature_3", "celsius"),
+            ("Temp4Read", "temperature_4", "celsius"),
+            ("HumRead", "humidity", "percent"),
+            ("VacRead", "vacuum", "mbar"),
+            ("CO2Read", "co2", "ppm"),
+            ("O2Read", "o2", "percent"),
+            ("FanRead", "fan_speed", "rpm"),
+        ):
+            measurement = _measurement_from_atmoweb(
+                key=key,
+                value=data.get(key),
+                unit=unit,
+                measured_at=measured_at,
+            )
+
+            # Nur Measurements mit tatsächlichem Wert aufnehmen.
+            # Wenn ein Gerät einen Sensor nicht unterstützt (N/A),
+            # wird der Wert nicht in den Batch übernommen.
+            # Wenn später ein Gerät angeschlossen wird, das z.B. CO₂
+            # unterstützt, erscheint der Wert automatisch wieder.
+            if measurement.value is not None:
+                measurements[name] = measurement
+
+        return measurements
+
+    def read_state(self) -> tuple[dict[str, object], dict[str, str]]:
+        data = self._request(
+            "DoorOpen",
+            "DoorLock",
+            "LightDay",
+            "LightUV",
+            "LightLED",
+            "SwASet",
+            "SwBSet",
+            "SwCSet",
+            "SwDSet",
+            "FlapSet",
+            "Defrost",
+            "CurOp",
+        )
+
+        states: dict[str, object] = {}
+
+        for key, name in (
+            ("DoorOpen", "door_open"),
+            ("DoorLock", "door_locked"),
+            ("Defrost", "defrost"),
+        ):
+            value = _optional_bool(data.get(key))
+            if value is not None:
+                states[name] = value
+
+        flap = _optional_percent(data.get("FlapSet"))
+        if flap is not None:
+            states["flap"] = flap
+
+        lights: dict[str, object] = {}
+        for key, name in (
+            ("LightDay", "day"),
+            ("LightUV", "uv"),
+        ):
+            value = _optional_bool(data.get(key))
+            if value is not None:
+                lights[name] = value
+
+        led = _optional_percent(data.get("LightLED"))
+        if led is not None:
+            lights["led"] = led
+
+        if lights:
+            states["lights"] = lights
+
+        switches: dict[str, bool] = {}
+        for key, name in (
+            ("SwASet", "a"),
+            ("SwBSet", "b"),
+            ("SwCSet", "c"),
+            ("SwDSet", "d"),
+        ):
+            value = _optional_bool(data.get(key))
+            if value is not None:
+                switches[name] = value
+
+        if switches:
+            states["switches"] = switches
+
+        operation: dict[str, str] = {}
+        mode = {
+            "Program": "program",
+            "Idle": "idle",
+            "Timer": "timer",
+            "Manual": "manual",
+        }.get(data.get("CurOp"))
+
+        if mode is not None:
+            operation["mode"] = mode
+
+        return states, operation
+
+    def read_setpoints(self) -> dict[str, float]:
+        data = self._request(
+            "TempSet",
+            "HumSet",
+            "VacSet",
+            "CO2Set",
+            "O2Set",
+            "FanSet",
+        )
+
+        setpoints: dict[str, float] = {}
+        for key, name in (
+            ("TempSet", "temperature"),
+            ("HumSet", "humidity"),
+            ("VacSet", "vacuum"),
+            ("CO2Set", "co2"),
+            ("O2Set", "o2"),
+            ("FanSet", "fan_speed"),
+        ):
+            value = _optional_number(data.get(key))
+            if value is not None:
+                setpoints[name] = value
+
+        return setpoints
+
+    def read_device_info(self) -> dict[str, object]:
+        info: dict[str, object] = {"host": self.host}
+        try:
+            device = self.identify()
+        except AtmoWebError:
+            return info
+        info["serial_number"] = device.serial_number
+        info["device_type"] = device.device_type
+        info["software_revision"] = device.software_revision
+        return info
+
+
+def _parse_timestamp(value: object) -> Optional[str]:
+    if value is None:
+        return None
+
+    if not isinstance(value, str):
+        raise AtmoWebError("AtmoWEB liefert für Time keinen String.")
+
+    try:
+        timestamp = datetime.fromisoformat(value)
+    except ValueError as exc:
+        raise AtmoWebError(f"Ungültiger AtmoWEB-Zeitstempel: {value!r}") from exc
+
+    if timestamp.tzinfo is None:
+        raise AtmoWebError("AtmoWEB Time muss eine Zeitzoneninformation enthalten.")
+
+    return timestamp.isoformat()
+
+
+def _measurement_from_atmoweb(
+    *,
+    key: str,
+    value: object,
+    unit: str,
+    measured_at: Optional[str],
+) -> Measurement:
+    if value in {"N/A", "N/D", "PermissionDenied", None}:
+        validity = "unknown" if value == "N/D" else "unavailable"
+        return Measurement(
+            value=None,
+            unit=unit,
+            measured_at=None,
+            validity=validity,
+            source="atmoweb",
+        )
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AtmoWebError(f"AtmoWEB liefert für {key} einen nicht numerischen Wert: {value!r}")
+
+    return Measurement(
+        value=value,
+        unit=unit,
+        measured_at=measured_at,
+        validity="valid",
+        source="atmoweb",
+    )
+
+
+def _optional_bool(value: object) -> Optional[bool]:
+    if value in {"N/A", "N/D", None, "PermissionDenied"}:
+        return None
+
+    if value == 0:
+        return False
+
+    if value == 1:
+        return True
+
+    raise AtmoWebError(f"Ungültiger AtmoWEB-State-Wert: {value!r}")
+
+
+def _optional_percent(value: object) -> Optional[float]:
+    if value in {"N/A", "N/D", None, "PermissionDenied"}:
+        return None
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AtmoWebError(f"Ungültiger AtmoWEB-Prozentwert: {value!r}")
+
+    if not (0 <= value <= 100):
+        raise AtmoWebError(f"AtmoWEB-Prozentwert außerhalb 0-100: {value!r}")
+
+    return value
+
+
+def _optional_number(value: object) -> Optional[float]:
+    if value in {"N/A", "N/D", None, "PermissionDenied"}:
+        return None
+
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise AtmoWebError(f"Ungültiger AtmoWEB-Zahlenwert: {value!r}")
+
+    return value

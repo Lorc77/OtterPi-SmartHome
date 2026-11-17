@@ -1,0 +1,176 @@
+"""Notifier für Alerts (E-Mail, ntfy, Webhook).
+
+Reine Standardbibliothek: smtplib, urllib.request, json.
+"""
+
+import json
+import logging
+import smtplib
+from dataclasses import dataclass
+from email.message import EmailMessage
+from typing import Optional
+from urllib.request import Request, urlopen
+
+LOGGER = logging.getLogger(__name__)
+
+
+def _ascii_safe(text: str) -> str:
+    """Ersetzt Nicht-ASCII-Zeichen durch ASCII-Äquivalente."""
+    replacements = {
+        "·": "-",
+        "—": "-",
+        "–": "-",
+        "ä": "ae",
+        "ö": "oe",
+        "ü": "ue",
+        "Ä": "Ae",
+        "Ö": "Oe",
+        "Ü": "Ue",
+        "ß": "ss",
+    }
+    for src, dst in replacements.items():
+        text = text.replace(src, dst)
+    # Fallback: alle verbleibenden Nicht-ASCII-Zeichen ersetzen
+    return text.encode("ascii", errors="replace").decode("ascii")
+
+
+@dataclass(frozen=True)
+class Alert:
+    sensor: str
+    severity: str
+    message: str
+    value: Optional[float] = None
+    threshold: Optional[float] = None
+    rule: Optional[str] = None
+    dedup_key: Optional[str] = None
+    subject: Optional[str] = None
+
+
+class EmailNotifier:
+    def __init__(self, config: dict, password: str) -> None:
+        self.host = config["smtp_host"]
+        self.port = config["smtp_port"]
+        self.user = config["smtp_user"]
+        self.from_addr = config["from"]
+        self.from_name = config.get("from_name", "")
+        self.recipients = config["recipients"]
+        self.routing = config.get("routing", {})
+        self.password = password
+
+    def send(self, alert: Alert) -> bool:
+        recipients = self.routing.get(alert.severity, self.recipients)
+        if not recipients:
+            return True
+        msg = EmailMessage()
+        msg["Subject"] = alert.subject or f"[{alert.severity.upper()}] {alert.sensor}"
+        if self.from_name:
+            msg["From"] = f"{self.from_name} <{self.from_addr}>"
+        else:
+            msg["From"] = self.from_addr
+        msg["To"] = ", ".join(recipients)
+        msg.set_content(alert.message)
+        try:
+            if self.port == 465:
+                with smtplib.SMTP_SSL(self.host, self.port, timeout=10) as smtp:
+                    smtp.login(self.user, self.password)
+                    smtp.send_message(msg)
+            else:
+                with smtplib.SMTP(self.host, self.port, timeout=10) as smtp:
+                    smtp.starttls()
+                    smtp.login(self.user, self.password)
+                    smtp.send_message(msg)
+            return True
+        except Exception:
+            return False
+
+
+class NtfyNotifier:
+    def __init__(self, config: dict) -> None:
+        self.url = config["url"].rstrip("/")
+        self.topic = config["topic"]
+        self.token = config.get("token")
+        self.severities = config.get("severities", ["critical", "warning"])
+
+    def send(self, alert: Alert) -> bool:
+        if alert.severity not in self.severities:
+            return True
+        title = alert.subject or f"{alert.severity.upper()}: {alert.sensor}"
+        headers = {"Title": _ascii_safe(title)}
+        if self.token:
+            headers["Authorization"] = f"Bearer {self.token}"
+        req = Request(
+            f"{self.url}/{self.topic}",
+            data=alert.message.encode("utf-8"),
+            headers=headers,
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=10) as resp:
+                if resp.status != 200:
+                    LOGGER.warning(
+                        "NtfyNotifier: HTTP %s for %s",
+                        resp.status,
+                        alert.dedup_key,
+                    )
+                    return False
+                return True
+        except Exception as exc:
+            LOGGER.warning(
+                "NtfyNotifier: %s for %s",
+                exc,
+                alert.dedup_key,
+            )
+            return False
+
+
+class WebhookNotifier:
+    def __init__(self, config: dict) -> None:
+        self.url = config["url"]
+        self.format = config.get("format", "generic")
+        self.severities = config.get("severities", ["critical", "warning"])
+
+    def send(self, alert: Alert) -> bool:
+        if alert.severity not in self.severities:
+            return True
+        if self.format == "discord":
+            payload = {"content": alert.message}
+        elif self.format == "slack":
+            payload = {"text": alert.message}
+        else:
+            payload = {
+                "sensor": alert.sensor,
+                "severity": alert.severity,
+                "message": alert.message,
+                "value": alert.value,
+                "threshold": alert.threshold,
+            }
+        req = Request(
+            self.url,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(req, timeout=10) as resp:
+                return 200 <= resp.status < 300
+        except Exception:
+            return False
+
+
+def create_notifiers(
+    notifications: dict,
+    mail: Optional[dict] = None,
+    smtp_password: Optional[str] = None,
+) -> list:
+    notifiers = []
+    if mail and mail.get("enabled", True) and smtp_password:
+        notifiers.append(EmailNotifier(mail, smtp_password))
+    for channel in notifications.get("channels", []):
+        if not channel.get("enabled", False):
+            continue
+        ctype = channel.get("type")
+        if ctype == "ntfy":
+            notifiers.append(NtfyNotifier(channel))
+        elif ctype == "webhook":
+            notifiers.append(WebhookNotifier(channel))
+    return notifiers

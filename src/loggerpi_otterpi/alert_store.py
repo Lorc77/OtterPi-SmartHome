@@ -1,0 +1,315 @@
+"""SQLite-Speicher für Alerts."""
+
+import sqlite3
+from datetime import datetime, timedelta, timezone
+from pathlib import Path
+from typing import Optional, Union
+
+from notifier import Alert
+
+
+class AlertStore:
+    def __init__(self, path: Union[str, Path]) -> None:
+        self.path = Path(path)
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self._initialize()
+
+    def _connect(self) -> sqlite3.Connection:
+        connection = sqlite3.connect(self.path)
+        connection.execute("PRAGMA journal_mode=WAL")
+        connection.execute("PRAGMA synchronous=NORMAL")
+        return connection
+
+    def _initialize(self) -> None:
+        with self._connect() as connection:
+            connection.execute(
+                """
+                CREATE TABLE IF NOT EXISTS alerts (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    created_at TEXT NOT NULL,
+                    sensor TEXT NOT NULL,
+                    rule TEXT NOT NULL,
+                    value REAL,
+                    threshold REAL,
+                    severity TEXT NOT NULL,
+                    message TEXT NOT NULL,
+                    dedup_key TEXT NOT NULL,
+                    acknowledged INTEGER NOT NULL DEFAULT 0,
+                    acknowledged_at TEXT,
+                    acknowledged_by TEXT,
+                    resolved_at TEXT
+                )
+                """
+            )
+            columns = {row[1] for row in connection.execute("PRAGMA table_info(alerts)")}
+            if "resolved_at" not in columns:
+                connection.execute("ALTER TABLE alerts ADD COLUMN resolved_at TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_alerts_created_at ON alerts(created_at)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_alerts_dedup_key ON alerts(dedup_key, created_at)"
+            )
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_alerts_acknowledged ON alerts(acknowledged)"
+            )
+
+    def store(self, alert: Alert) -> int:
+        if alert.rule is None or alert.dedup_key is None:
+            raise ValueError("Alert must have 'rule' and 'dedup_key' set.")
+        created_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                INSERT INTO alerts (
+                    created_at, sensor, rule, value, threshold,
+                    severity, message, dedup_key
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    created_at,
+                    alert.sensor,
+                    alert.rule,
+                    alert.value,
+                    alert.threshold,
+                    alert.severity,
+                    alert.message,
+                    alert.dedup_key,
+                ),
+            )
+            return cursor.lastrowid
+
+    def recent_dedup_keys(self, dedup_key: str, since: str) -> bool:
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT 1 FROM alerts WHERE dedup_key = ? AND created_at >= ? LIMIT 1",
+                (dedup_key, since),
+            ).fetchone()
+        return row is not None
+
+    def is_acknowledged(self, dedup_key: str) -> bool:
+        """True, wenn der letzte aktive Alert mit diesem dedup_key acknowledged ist."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT acknowledged FROM alerts WHERE dedup_key = ? "
+                "AND resolved_at IS NULL ORDER BY id DESC LIMIT 1",
+                (dedup_key,),
+            ).fetchone()
+        if row is None:
+            return False
+        return bool(row[0])
+
+    def reset_acknowledged(self, dedup_key: str) -> None:
+        """Setzt acknowledged=0 für alle Alerts mit diesem dedup_key."""
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE alerts SET acknowledged = 0, acknowledged_at = NULL, "
+                "acknowledged_by = NULL WHERE dedup_key = ? AND acknowledged = 1",
+                (dedup_key,),
+            )
+
+    def resolve(self, dedup_key: str) -> None:
+        """Setzt resolved_at für alle offenen Alerts mit diesem dedup_key."""
+        resolved_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            connection.execute(
+                "UPDATE alerts SET resolved_at = ? WHERE dedup_key = ? AND resolved_at IS NULL",
+                (resolved_at, dedup_key),
+            )
+
+    def resolve_by_id(self, alert_id: int) -> bool:
+        """Setzt resolved_at für einen bestimmten Alert (per ID)."""
+        resolved_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                "UPDATE alerts SET resolved_at = ? WHERE id = ? AND resolved_at IS NULL",
+                (resolved_at, alert_id),
+            )
+            return cursor.rowcount > 0
+
+    def is_active(self, dedup_key: str) -> bool:
+        """True, wenn der letzte Alert mit diesem dedup_key noch nicht resolved ist."""
+        with self._connect() as connection:
+            row = connection.execute(
+                "SELECT resolved_at FROM alerts WHERE dedup_key = ? ORDER BY id DESC LIMIT 1",
+                (dedup_key,),
+            ).fetchone()
+        if row is None:
+            return False
+        return row[0] is None
+
+    def _build_where(
+        self,
+        only_unacknowledged: bool = False,
+        only_active: bool = False,
+        severity: Optional[str] = None,
+        status: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        device_prefixes: Optional[list] = None,
+    ) -> tuple:
+        conditions = []
+        params: list = []
+        if only_unacknowledged:
+            conditions.append("acknowledged = 0")
+        if status is None and only_active:
+            status = "active"
+        if status == "active":
+            conditions.append("resolved_at IS NULL")
+        elif status == "resolved":
+            conditions.append("resolved_at IS NOT NULL")
+        if severity:
+            conditions.append("severity = ?")
+            params.append(severity)
+        if since:
+            if len(since) == 10:
+                since = since + "T00:00:00"
+            conditions.append("created_at >= ?")
+            params.append(since)
+        if until:
+            if len(until) == 10:
+                until_dt = datetime.fromisoformat(until) + timedelta(days=1)
+                conditions.append("created_at < ?")
+                params.append(until_dt.strftime("%Y-%m-%dT00:00:00"))
+            else:
+                conditions.append("created_at <= ?")
+                params.append(until)
+        if device_prefixes:
+            device_conditions = []
+            for prefix in device_prefixes:
+                device_conditions.append("(sensor = ? OR sensor LIKE ?)")
+                params.append(prefix)
+                params.append(prefix + ".%")
+            conditions.append("(" + " OR ".join(device_conditions) + ")")
+        where = " WHERE " + " AND ".join(conditions) if conditions else ""
+        return where, params
+
+    def list_alerts(
+        self,
+        limit: int = 100,
+        offset: int = 0,
+        only_unacknowledged: bool = False,
+        only_active: bool = False,
+        severity: Optional[str] = None,
+        status: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        device_prefixes: Optional[list] = None,
+        latest_per_dedup_key: bool = False,
+    ) -> list:
+        where, params = self._build_where(
+            only_unacknowledged=only_unacknowledged,
+            only_active=only_active,
+            severity=severity,
+            status=status,
+            since=since,
+            until=until,
+            device_prefixes=device_prefixes,
+        )
+        if latest_per_dedup_key:
+            query = (
+                "SELECT * FROM alerts WHERE id IN ("
+                f"SELECT MAX(id) FROM alerts{where} GROUP BY dedup_key"
+                ") ORDER BY created_at DESC LIMIT ? OFFSET ?"
+            )
+        else:
+            query = "SELECT * FROM alerts" + where + " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.append(limit)
+        params.append(offset)
+        with self._connect() as connection:
+            connection.row_factory = sqlite3.Row
+            rows = connection.execute(query, params).fetchall()
+        return [dict(row) for row in rows]
+
+    def count_alerts(
+        self,
+        only_unacknowledged: bool = False,
+        only_active: bool = False,
+        severity: Optional[str] = None,
+        status: Optional[str] = None,
+        since: Optional[str] = None,
+        until: Optional[str] = None,
+        device_prefixes: Optional[list] = None,
+        latest_per_dedup_key: bool = False,
+    ) -> int:
+        where, params = self._build_where(
+            only_unacknowledged=only_unacknowledged,
+            only_active=only_active,
+            severity=severity,
+            status=status,
+            since=since,
+            until=until,
+            device_prefixes=device_prefixes,
+        )
+        if latest_per_dedup_key:
+            query = f"SELECT COUNT(DISTINCT dedup_key) FROM alerts{where}"
+        else:
+            query = "SELECT COUNT(*) FROM alerts" + where
+        with self._connect() as connection:
+            return connection.execute(query, params).fetchone()[0]
+
+    def count_by_day(self, days: int = 14) -> list[dict]:
+        """Aggregiert die Alerts pro Tag (warning, critical, resolved)."""
+        since = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+        with self._connect() as connection:
+            rows = connection.execute(
+                """
+                SELECT
+                    DATE(created_at) AS day,
+                    SUM(CASE WHEN severity = 'warning' THEN 1 ELSE 0 END) AS warning,
+                    SUM(CASE WHEN severity = 'critical' THEN 1 ELSE 0 END) AS critical,
+                    SUM(CASE WHEN resolved_at IS NOT NULL THEN 1 ELSE 0 END) AS resolved
+                FROM alerts
+                WHERE created_at >= ?
+                GROUP BY day
+                ORDER BY day
+                """,
+                (since,),
+            ).fetchall()
+        return [
+            {
+                "date": row[0],
+                "warning": row[1],
+                "critical": row[2],
+                "resolved": row[3],
+            }
+            for row in rows
+        ]
+
+    def count_by_status(self) -> dict:
+        """Zählt die Alerts nach Status (active critical, active warning, resolved).
+
+        Aktive Alerts werden pro ``dedup_key`` dedupliziert (nur der neueste
+        zählt), damit die Status-Zeile zur deduplizierten Current-Tab-Ansicht
+        passt.
+        """
+        with self._connect() as connection:
+            active_rows = connection.execute(
+                "SELECT severity, COUNT(DISTINCT dedup_key) FROM alerts "
+                "WHERE resolved_at IS NULL GROUP BY severity"
+            ).fetchall()
+            resolved_row = connection.execute(
+                "SELECT COUNT(*) FROM alerts WHERE resolved_at IS NOT NULL"
+            ).fetchone()
+        result = {"active_critical": 0, "active_warning": 0, "resolved": 0}
+        for severity, count in active_rows:
+            if severity == "critical":
+                result["active_critical"] = count
+            elif severity == "warning":
+                result["active_warning"] = count
+        result["resolved"] = resolved_row[0] if resolved_row else 0
+        return result
+
+    def acknowledge(self, alert_id: int, by: str) -> bool:
+        acknowledged_at = datetime.now(timezone.utc).isoformat()
+        with self._connect() as connection:
+            cursor = connection.execute(
+                """
+                UPDATE alerts
+                SET acknowledged = 1, acknowledged_at = ?, acknowledged_by = ?
+                WHERE id = ? AND acknowledged = 0
+                """,
+                (acknowledged_at, by, alert_id),
+            )
+            return cursor.rowcount > 0

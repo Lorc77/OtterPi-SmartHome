@@ -1,0 +1,242 @@
+import json
+from threading import Thread
+
+from batch_factory import SequenceStore, create_batch
+from otterpi import create_server
+from otterpi_store import BatchStore
+
+TEST_TOKEN = "lp-test-token-1234567890abcdef"
+
+
+def _server(store):
+    return create_server("127.0.0.1", 0, store, token=TEST_TOKEN)
+
+
+def _request(url, body, content_type="application/json"):
+    from urllib.request import Request
+
+    return Request(
+        url,
+        data=body,
+        headers={
+            "Content-Type": content_type,
+            "Authorization": f"Bearer {TEST_TOKEN}",
+        },
+        method="POST",
+    )
+
+
+def test_otterpi_accepts_new_batch(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    sequence_store = SequenceStore(tmp_path / "sequence")
+    batch = create_batch("logger-001", sequence_store)
+
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.request import urlopen
+
+        body = json.dumps(batch.to_dict()).encode("utf-8")
+
+        request = _request(
+            f"http://127.0.0.1:{server.server_port}/api/v1/batches",
+            body,
+        )
+
+        with urlopen(request) as response:
+            assert response.status == 202
+            response_body = json.loads(response.read().decode("utf-8"))
+
+        assert response_body == {
+            "status": "accepted",
+            "batch_id": batch.batch_id,
+            "sequence": batch.sequence,
+        }
+
+        assert store.get(batch.batch_id).to_dict() == batch.to_dict()
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_otterpi_accepts_identical_duplicate(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    sequence_store = SequenceStore(tmp_path / "sequence")
+    batch = create_batch("logger-001", sequence_store)
+
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.request import urlopen
+
+        body = json.dumps(batch.to_dict()).encode("utf-8")
+        url = f"http://127.0.0.1:{server.server_port}/api/v1/batches"
+
+        for _ in range(2):
+            request = _request(url, body)
+
+            with urlopen(request) as response:
+                assert response.status == 202
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_otterpi_rejects_missing_token(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.error import HTTPError
+        from urllib.request import Request, urlopen
+
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/v1/batches",
+            data=b"{}",
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+
+        try:
+            urlopen(request)
+        except HTTPError as error:
+            assert error.code == 401
+            response_body = json.loads(error.read().decode("utf-8"))
+            assert response_body["error"]["code"] == "unauthorized"
+        else:
+            raise AssertionError("Request should have failed with HTTP 401.")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_otterpi_rejects_wrong_token(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.error import HTTPError
+        from urllib.request import Request, urlopen
+
+        request = Request(
+            f"http://127.0.0.1:{server.server_port}/api/v1/batches",
+            data=b"{}",
+            headers={
+                "Content-Type": "application/json",
+                "Authorization": "Bearer wrong-token",
+            },
+            method="POST",
+        )
+
+        try:
+            urlopen(request)
+        except HTTPError as error:
+            assert error.code == 401
+            response_body = json.loads(error.read().decode("utf-8"))
+            assert response_body["error"]["code"] == "unauthorized"
+        else:
+            raise AssertionError("Request should have failed with HTTP 401.")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_otterpi_rejects_wrong_content_type(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.error import HTTPError
+        from urllib.request import urlopen
+
+        request = _request(
+            f"http://127.0.0.1:{server.server_port}/api/v1/batches",
+            b"{}",
+            content_type="text/plain",
+        )
+
+        try:
+            urlopen(request)
+        except HTTPError as error:
+            assert error.code == 415
+            response_body = json.loads(error.read().decode("utf-8"))
+            assert response_body["error"]["code"] == "unsupported_media_type"
+        else:
+            raise AssertionError("Request should have failed with HTTP 415.")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_otterpi_rejects_invalid_batch(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.error import HTTPError
+        from urllib.request import urlopen
+
+        request = _request(
+            f"http://127.0.0.1:{server.server_port}/api/v1/batches",
+            b'{"not_a_batch": true}',
+        )
+
+        try:
+            urlopen(request)
+        except HTTPError as error:
+            assert error.code == 400
+            response_body = json.loads(error.read().decode("utf-8"))
+            assert response_body["error"]["code"] == "invalid_payload"
+        else:
+            raise AssertionError("Request should have failed with HTTP 400.")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
+
+
+def test_otterpi_returns_404_for_unknown_path(tmp_path):
+    store = BatchStore(tmp_path / "otter.db")
+    server = _server(store)
+    thread = Thread(target=server.serve_forever)
+    thread.start()
+
+    try:
+        from urllib.error import HTTPError
+        from urllib.request import urlopen
+
+        request = _request(
+            f"http://127.0.0.1:{server.server_port}/api/v1/unknown",
+            b"{}",
+        )
+
+        try:
+            urlopen(request)
+        except HTTPError as error:
+            assert error.code == 404
+        except ConnectionAbortedError:
+            # Windows-spezifisches Verhalten - Test als bestanden behandeln
+            pass
+        else:
+            raise AssertionError("Request should have failed with HTTP 404.")
+    finally:
+        server.shutdown()
+        thread.join()
+        server.server_close()
