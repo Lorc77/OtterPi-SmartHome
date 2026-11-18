@@ -1,5 +1,6 @@
 """Daten-/Rechenfunktionen für das Dashboard."""
 
+import glob
 import json
 import os
 import sqlite3
@@ -170,7 +171,7 @@ def _recent_batches(
     else:
         cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
         if limit is None:
-            limit = 192
+            limit = 5000
         with sqlite3.connect(store.path) as conn:
             rows = conn.execute(
                 "SELECT payload, received_at FROM batches "
@@ -189,6 +190,51 @@ def _recent_batches(
     return batches
 
 
+def _count_recent_batches(store: BatchStore, hours: int = 48) -> int:
+    """Zählt die Batches der letzten ``hours`` Stunden (SQL COUNT)."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=hours)).isoformat()
+    with sqlite3.connect(store.path) as conn:
+        row = conn.execute(
+            "SELECT COUNT(*) FROM batches WHERE created_at >= ?",
+            (cutoff,),
+        ).fetchone()
+    return row[0] if row else 0
+
+
+def _system_metrics() -> dict:
+    """Liest CPU-Temperatur und Memory-Auslastung vom Host.
+
+    Gibt None zurück, wenn die Werte nicht verfügbar sind
+    (z. B. unter Windows bei Tests).
+    """
+    result = {"cpu_temp": None, "memory_used": None}
+
+    # CPU-Temperatur (Raspberry Pi: thermal_zone0)
+    for path in sorted(glob.glob("/sys/class/thermal/thermal_zone*/temp")):
+        try:
+            with open(path) as f:
+                result["cpu_temp"] = int(f.read().strip()) / 1000.0
+            break
+        except (OSError, ValueError):
+            continue
+
+    # Memory
+    try:
+        meminfo = {}
+        with open("/proc/meminfo") as f:
+            for line in f:
+                key, _, value = line.partition(":")
+                meminfo[key.strip()] = int(value.strip().split()[0])
+        total = meminfo.get("MemTotal")
+        available = meminfo.get("MemAvailable")
+        if total and available:
+            result["memory_used"] = (total - available) / total * 100
+    except (OSError, ValueError):
+        pass
+
+    return result
+
+
 def _current_values(batches: list[dict]) -> dict:
     """Ermittelt die aktuellen Werte aus dem letzten Batch."""
     current = {
@@ -200,8 +246,6 @@ def _current_values(batches: list[dict]) -> dict:
         "temp_memmert_links": 0.0,
         "temp_memmert_rechts": 0.0,
         "last_batch": "–",
-        "cpu_temp": 0.0,
-        "memory_used": 0.0,
     }
 
     if not batches:
@@ -240,16 +284,16 @@ def _current_values(batches: list[dict]) -> dict:
     if temp_memmert_rechts.get("value") is not None:
         current["temp_memmert_rechts"] = temp_memmert_rechts["value"]
 
-    system = latest.get("system", {})
-    cpu = system.get("cpu", {})
-    if cpu.get("temperature_celsius") is not None:
-        current["cpu_temp"] = cpu["temperature_celsius"]
-
-    memory = latest.get("memory", {})
-    if memory.get("total_bytes") and memory.get("used_bytes"):
-        current["memory_used"] = memory["used_bytes"] / memory["total_bytes"] * 100
-
     return current
+
+
+def _latest_batch_for_device(batches: list[dict], key: str) -> dict:
+    """Findet den letzten Batch, der Measurements für ``key`` enthält."""
+    for batch in reversed(batches):
+        measurements = batch.get("measurements", {})
+        if any(k.startswith(f"{key}.") for k in measurements):
+            return batch
+    return {}
 
 
 def _device_current(batches: list[dict], key: str, device_type: str = "atmoweb") -> dict:
@@ -264,7 +308,7 @@ def _device_current(batches: list[dict], key: str, device_type: str = "atmoweb")
     if not batches:
         return result
 
-    latest = batches[-1]
+    latest = _latest_batch_for_device(batches, key)
     measurements = latest.get("measurements", {})
 
     if device_type == "placeholder":
@@ -292,7 +336,7 @@ def _device_current(batches: list[dict], key: str, device_type: str = "atmoweb")
 
         return result
 
-    if device_type == "weatherhub_id0e":
+    if device_type in ("weatherhub_id0e", "weatherhub_id03"):
         temp = measurements.get(f"{key}.temperature", {})
         hum = measurements.get(f"{key}.humidity", {})
 
@@ -332,7 +376,7 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
     if device_type == "placeholder":
         return "status-off"
 
-    latest = batches[-1]
+    latest = _latest_batch_for_device(batches, key)
     measurements = latest.get("measurements", {})
     states = latest.get("states", {}).get(key, {})
 
@@ -367,7 +411,10 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
             return "status-ok"
         return "status-off"
 
-    temp = measurements.get(f"{key}.temperature_1", {})
+    if device_type in ("weatherhub_id0e", "weatherhub_id03"):
+        temp = measurements.get(f"{key}.temperature", {})
+    else:
+        temp = measurements.get(f"{key}.temperature_1", {})
     hum = measurements.get(f"{key}.humidity", {})
     validities = {temp.get("validity"), hum.get("validity")}
 
@@ -571,7 +618,7 @@ def _device_chips(
     if not batches or device_type == "placeholder":
         return []
 
-    latest = batches[-1]
+    latest = _latest_batch_for_device(batches, key)
     measurements = latest.get("measurements", {})
     states = latest.get("states", {}).get(key, {})
     operation = latest.get("operation", {}).get(key, {})
@@ -666,7 +713,8 @@ def _device_chips(
 def _led_value(batches: list[dict], key: str) -> Optional[float]:
     if not batches:
         return None
-    states = batches[-1].get("states", {}).get(key, {})
+    latest = _latest_batch_for_device(batches, key)
+    states = latest.get("states", {}).get(key, {})
     lights = states.get("lights", {})
     if isinstance(lights, dict) and "led" in lights:
         return lights["led"]

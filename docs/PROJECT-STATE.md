@@ -4,7 +4,7 @@
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
 **Stand:** 2026-11-17
-**Version:** v0.1.2
+**Version:** v0.1.3
 
 ---
 
@@ -152,7 +152,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ### Teststand
 
-**424 Tests, alle grün.** Ruff/Format clean.
+**430 Tests, alle grün.** Ruff/Format clean.
 
 ---
 
@@ -335,19 +335,39 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 - `runs-on: ubuntu-22.04` eingetragen.
 - **Noch offen:** Python-3.9-Job läuft noch in der Matrix. Entweder `ubuntu-22.04` beibehalten (dann läuft 3.9) oder auf 3.13-only umstellen (Phase 7).
 
+#### Deploy (v0.1.2) ✅
+- Repo auf GitHub gepusht.
+- Tag `v0.1.2` gesetzt und gepusht.
+- Auf dem OtterPi deployt (`sudo /usr/local/sbin/otterpi-smarthome-update smarthome`).
+- Service läuft (`smarthome.observer.service`).
+- Pakete kommen an (Batch mit Measurements und States in `smarthome.sqlite3`).
+
+#### Gateway (v0.1.2) ✅
+- Gateway sendet an `192.168.178.100:3779`.
+- Proxy-Modus aktiv.
+- Pakete kommen an (ID01-Sensoren mit `temperature_1`/`temperature_2`, `battery_low`-States).
+
+#### Bugfixes (v0.1.2) ✅
+- **`config/`-Verzeichnis in `install.sh`:** Wird jetzt explizit angelegt (`install -d -o makki -g makki -m 0750 /var/lib/otterpi-smarthome/config`). Vorher fehlte es, und beim ersten `save_*` schlug `tempfile.mkstemp` mit `PermissionError` fehl, wenn das Verzeichnis von `root` angelegt worden war.
+- **`chmod`-Fixes auf dem OtterPi:** `config/` auf 0750, DBs und Sequence auf 0640 (manuell).
+- **`smarthome_bridge.py`:** Schreibt jetzt auch `states` (nicht nur `measurements`).
+- **`weatherhub.py`:** `measurements_from_packet` prüft `sensor_id in self._reception_times` (verhindert `stale` beim ersten Paket).
+- **`otterpi_store.py`:** `created_at`-Spalte + Migration + Index.
+- **`dashboard_data.py`:** SQL-Filter nach `created_at`.
+
+#### Bugfixes (v0.1.3) ✅
+- `backup.py`: DB-Name `batches.sqlite3` → `smarthome.sqlite3`, Env `OTTERPI_BACKUP_HEALTHCHECK_URL` → `SMARTHOME_BACKUP_HEALTHCHECK_URL`.
+- `dashboard.py`/`dashboard_data.py`: `_system_metrics()` liest CPU-Temperatur und Memory direkt aus `/sys`/`/proc`.
+- `dashboard.py`/`dashboard_data.py`: ID03 in `_device_measurement_keys`/`_device_current`/`_device_status` ergänzt.
+- `admin.py`/`dashboard.py`: „ZOOLOGY-Observer" → „OtterPi-SmartHome", Dashboard-Icon `📡` → `🏡`.
+- `weatherhub.py`/`smarthome_bridge.py`: `read_state(sensor_id)` filtert States auf das aktuelle Paket.
+- `dashboard_data.py`: `_count_recent_batches()` für exakte „Packets (48h)"-Anzeige.
+- `dashboard_data.py`: `_latest_batch_for_device()` — Übersicht zeigt jetzt alle Sensoren, nicht nur den letzten.
+- `dashboard_data.py`/`dashboard.py`: Limits hochgesetzt (`_recent_batches` 192 → 5000, Detailseiten `hours * 4 + 100` → `hours * 30 + 100`).
+
 ---
 
 ### Offen
-
-#### Phase 4 — Deploy
-- [ ] `sudo /usr/local/sbin/otterpi-smarthome-update smarthome`
-- [ ] Verifikation: `systemctl status`, `DEPLOYED_VERSION`, `ls -la /var/lib/otterpi-smarthome/`, `journalctl`
-
-#### Phase 5 — Gateway konfigurieren
-- [ ] Gateway auf `192.168.178.100:3779` zeigen lassen.
-- [ ] Proxy-Modus aktivieren (`Use Proxy: Yes`, `Proxy Server Name: 192.168.178.100`, `Proxy Port: 3779`).
-- [ ] Cloud-Forward aktivieren (falls gewünscht).
-- [ ] Allowlist prüfen (`SMARTHOME_WEATHERHUB_ALLOWLIST=192.168.178.31`).
 
 #### Phase 5.5 — nginx + Extern-Vorbereitung
 - [ ] nginx-Serverblock für `smarthome.makki.route64.de` → `127.0.0.1:8091`.
@@ -358,13 +378,16 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 - [ ] Verifikation: `https://smarthome.makki.route64.de/` und `/admin`.
 
 #### Phase 6 — Verifizieren
-- [ ] Dashboard (`http://192.168.178.100:8091/`).
-- [ ] Admin (`http://192.168.178.100:8091/admin`).
+- [x] Dashboard (`http://192.168.178.100:8091/`).
+- [x] Admin (`http://192.168.178.100:8091/admin`).
 - [ ] Räume anlegen, Sensoren zuordnen.
 - [ ] Alarm Limits konfigurieren.
 - [ ] Mail/Notifications/Messages konfigurieren.
-- [ ] Datenbank wächst.
+- [x] Datenbank wächst.
 - [ ] Cloud-Forward funktioniert.
+
+#### Bugfix — `_validate_rooms` erlaubt keine leeren `rooms`
+- [ ] `config_store.py::_validate_rooms`: `if not isinstance(rooms, dict) or not rooms:` → `if not isinstance(rooms, dict):`. Sonst schlägt das erste Raum-Anlegen fehl (`rooms.json must contain a non-empty 'rooms' object`).
 
 #### Phase 7 — Python 3.13-Modernisierung + Refactoring
 - [ ] `pyproject.toml`: `requires-python = ">=3.13"`, `target-version = "py313"`, `FA102` weg, `per-file-ignores` weg.
@@ -387,8 +410,8 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 
 ### Nächster konkreter Schritt
 
-**Phase 4:** Deploy auf dem OtterPi (`sudo /usr/local/sbin/otterpi-smarthome-update smarthome`).
+**Bugfix `_validate_rooms`:** Leere `rooms` erlauben, damit das erste Raum-Anlegen über das Formular funktioniert.
 
-Danach: Phase 5 (Gateway), Phase 5.5 (nginx + Extern), Phase 6 (Verifizieren), Phase 7 (Python 3.13 + Refactoring).
+Danach: Phase 5.5 (nginx + Extern), Phase 6 (Verifizieren), Phase 7 (Python 3.13 + Refactoring).
 
 **Hinweis:** Der CI-Fix (`ubuntu-22.04`) ist nur eine Zwischenlösung. Mit Phase 7 (3.13-only) kann `ubuntu-latest` wieder verwendet werden.

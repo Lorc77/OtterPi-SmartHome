@@ -151,16 +151,22 @@ Dies wird in der Service-Datei und der `.env`-Datei konfiguriert.
 
 ## 4. Verzeichnisse
 
-| Zweck | Pfad |
-|---|---|
-| Install | `/opt/otterpi-smarthome/` |
-| Persistenz | `/var/lib/otterpi-smarthome/` |
-| Datenbank | `/var/lib/otterpi-smarthome/smarthome.sqlite3` |
-| Alerts | `/var/lib/otterpi-smarthome/alerts.sqlite3` |
-| Sequence | `/var/lib/otterpi-smarthome/sequence` |
-| Config | `/var/lib/otterpi-smarthome/config/` |
-| Env | `/etc/otterpi-smarthome/smarthome.env` |
-| Service | `otterpi-smarthome.observer.service` |
+| Zweck | Pfad | Owner | Rechte |
+|---|---|---|---|
+| Install | `/opt/otterpi-smarthome/` | `root:root` | 0755 |
+| Persistenz | `/var/lib/otterpi-smarthome/` | `makki:makki` | 0750 |
+| Datenbank | `/var/lib/otterpi-smarthome/smarthome.sqlite3` | `makki:makki` | 0640 |
+| Alerts | `/var/lib/otterpi-smarthome/alerts.sqlite3` | `makki:makki` | 0640 |
+| Sequence | `/var/lib/otterpi-smarthome/sequence` | `makki:makki` | 0640 |
+| Config | `/var/lib/otterpi-smarthome/config/` | `makki:makki` | 0750 |
+| Archive | `/var/lib/otterpi-smarthome/archive/` | `makki:makki` | 0750 |
+| Env | `/etc/otterpi-smarthome/smarthome.env` | `root:root` | 0640 |
+| Service | `smarthome.observer.service` | `root:root` | 0644 |
+
+**Hinweis:** `config/` wird von `install.sh` explizit angelegt (DEC-017).
+Die DBs und die Sequence werden von SQLite bzw. `SequenceStore` mit
+Default-Rechten (0644) angelegt. Für 0640 entweder manuell `chmod`
+oder `os.umask(0o027)` in `otterpi_store.py` und `alert_store.py` setzen.
 
 ---
 
@@ -169,7 +175,7 @@ Dies wird in der Service-Datei und der `.env`-Datei konfiguriert.
 Die Konfiguration erfolgt über `/etc/otterpi-smarthome/smarthome.env`:
 
 ```bash
-SMARTHOME_HOST=127.0.0.1
+SMARTHOME_HOST=0.0.0.0
 SMARTHOME_PORT=8091
 SMARTHOME_TOKEN=<dein-token>
 SMARTHOME_DATABASE=/var/lib/otterpi-smarthome/smarthome.sqlite3
@@ -192,7 +198,7 @@ SMTP_PASSWORD=<app-passwort>
 
 | Variable | Bedeutung | Default |
 |---|---|---|
-| `SMARTHOME_HOST` | HTTP-Listener (Dashboard/Admin) | `127.0.0.1` |
+| `SMARTHOME_HOST` | HTTP-Listener (Dashboard/Admin) | `0.0.0.0` |
 | `SMARTHOME_PORT` | HTTP-Port | `8091` |
 | `SMARTHOME_TOKEN` | Bearer-Token für `/api/v1/batches` | – |
 | `SMARTHOME_DATABASE` | SQLite-Pfad | `/var/lib/otterpi-smarthome/smarthome.sqlite3` |
@@ -357,7 +363,7 @@ Application Deployment:
     implementiert
 
 OtterPi Backend:
-    127.0.0.1:8091
+    0.0.0.0:8091
 
 WeatherHub-Listener:
     0.0.0.0:3779

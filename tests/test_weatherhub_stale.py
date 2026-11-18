@@ -167,10 +167,9 @@ class TestWeatherHubStaleLogic:
         )
 
         reader.update_from_packets([packet], client_ip="141.51.190.121")
-        states, operation = reader.read_state()
+        states = reader.read_state()
 
         assert states["weatherhub_017a5cd3fc1c"]["battery_low"] is True
-        assert operation == {}
 
     def test_read_device_info(self) -> None:
         reader = WeatherHubReader(stale_after_seconds=1800)

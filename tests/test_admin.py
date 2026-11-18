@@ -61,7 +61,7 @@ def test_admin_page_renders(tmp_path):
         with urlopen(f"http://127.0.0.1:{server.server_port}/admin") as resp:
             assert resp.status == 200
             html = resp.read().decode("utf-8")
-        assert "ZOOLOGY-Observer Admin" in html
+        assert "OtterPi-SmartHome Admin" in html
     finally:
         server.shutdown()
         thread.join()

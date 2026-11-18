@@ -12,6 +12,7 @@ from dashboard_data import (
     _device_status,
     _led_value,
     _recent_batches,
+    _system_metrics,
 )
 from otterpi_store import BatchStore
 
@@ -38,8 +39,6 @@ def _make_batch(measurements=None, created_at=None, batch_id="test-batch", seque
         "sequence": sequence,
         "created_at": created_at or datetime.now(timezone.utc).isoformat(),
         "measurements": measurements or {},
-        "system": {"cpu": {"temperature_celsius": 45.0}},
-        "memory": {"total_bytes": 1000, "used_bytes": 500},
     }
     if states is not None:
         result["states"] = states
@@ -148,8 +147,6 @@ class TestCurrentValues:
         assert current["temp_101"] == 23.5
         assert current["hum_101"] == 60.0
         assert current["temp_freezer"] == -80.0
-        assert current["cpu_temp"] == 45.0
-        assert current["memory_used"] == 50.0
 
 
 class TestRecentBatches:
@@ -540,3 +537,10 @@ def test_recent_batches_filters_by_created_at(tmp_path):
     # Alter Batch (created_at 100h) muss gefiltert werden,
     # obwohl received_at frisch ist.
     assert result == []
+
+
+def test_system_metrics_returns_dict():
+    result = _system_metrics()
+    assert set(result) == {"cpu_temp", "memory_used"}
+    assert result["cpu_temp"] is None or isinstance(result["cpu_temp"], float)
+    assert result["memory_used"] is None or isinstance(result["memory_used"], float)

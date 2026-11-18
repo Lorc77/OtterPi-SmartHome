@@ -99,6 +99,10 @@ install -o root -g root -m 0644 \
 install -d -o makki -g makki -m 0750 \
     /var/lib/otterpi-smarthome
 
+# Config-Verzeichnis anlegen
+install -d -o makki -g makki -m 0750 \
+    /var/lib/otterpi-smarthome/config
+
 # Archiv-Verzeichnis anlegen
 install -d -o makki -g makki -m 0750 \
     /var/lib/otterpi-smarthome/archive

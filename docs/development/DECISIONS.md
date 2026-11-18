@@ -499,6 +499,149 @@ Config-Keys müssen zu den Env-Variablen in `smarthome.env` passen.
 
 ---
 
+## DEC-017 — `install.sh` legt `config/`-Verzeichnis an
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+Beim ersten Deploy fehlte `/var/lib/otterpi-smarthome/config/`. Es wurde
+erst beim ersten `save_*` durch `path.parent.mkdir(parents=True,
+exist_ok=True)` in `_write_json_atomic` angelegt. Wenn das Verzeichnis
+aber bereits existierte (z.B. von einem manuellen Test mit `sudo`) und
+`root` gehörte, schlug `tempfile.mkstemp` mit `PermissionError` fehl.
+
+### Entscheidung
+
+`install.sh` legt `/var/lib/otterpi-smarthome/config/` explizit an:
+
+```bash
+install -d -o makki -g makki -m 0750 \
+    /var/lib/otterpi-smarthome/config
+```
+
+### Begründung
+
+- Das Verzeichnis gehört dann garantiert `makki:makki` mit 0750.
+- Kein `PermissionError` beim ersten `save_*`.
+- Kein manueller `chown` nach dem Deploy nötig.
+
+### Konsequenz
+
+- `deploy/smarthome/install.sh` erweitert.
+- `docs/deployment/DEPLOYMENT.md` dokumentiert das Verzeichnis.
+
+---
+
+## DEC-018 — `_validate_rooms` erlaubt leere `rooms`
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+`_validate_rooms` in `config_store.py` verlangte ein nicht-leeres
+`rooms`-Objekt:
+
+```python
+if not isinstance(rooms, dict) or not rooms:
+    raise ConfigValidationError("rooms.json must contain a non-empty 'rooms' object.")
+```
+
+Da `_DEFAULT_ROOMS = {}` ist (DEC-009), schlug das erste Raum-Anlegen
+über das Formular fehl (`rooms.json must contain a non-empty 'rooms'
+object`).
+
+### Entscheidung
+
+`_validate_rooms` erlaubt leere `rooms`:
+
+```python
+if not isinstance(rooms, dict):
+    raise ConfigValidationError("rooms.json must contain a 'rooms' object.")
+```
+
+### Begründung
+
+- `_DEFAULT_ROOMS = {}` ist bewusst leer (DEC-009).
+- Der erste Raum muss über das Formular angelegt werden können.
+- Ein leeres `rooms`-Objekt ist ein valider Zustand (frischer Deploy).
+
+### Konsequenz
+
+- `config_store.py::_validate_rooms` angepasst.
+- `tests/test_config_store.py` ggf. anpassen (Test für leeres `rooms`).
+
+---
+
+## DEC-019 — System-Metriken direkt aus `/proc` und `/sys`
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+CPU-Temperatur und Memory wurden aus dem Batch gelesen (`system`/`memory`), existieren im SmartHome-Batch aber nicht. Die Anzeige zeigte immer `0.0 °C` / `0%`.
+
+### Entscheidung
+
+`_system_metrics()` in `dashboard_data.py` liest die Werte direkt vom Host:
+- CPU-Temperatur: `/sys/class/thermal/thermal_zone*/temp` (Milligrad)
+- Memory: `/proc/meminfo` (`MemTotal`, `MemAvailable`)
+
+Unter Windows (Tests) gibt die Funktion `None` zurück, die Anzeige zeigt „–".
+
+### Konsequenz
+
+- `dashboard_data.py`: `_system_metrics()` (neu).
+- `dashboard.py`: `_render_overview` nutzt `_system_metrics()`.
+- `_current_values` bereinigt (`cpu_temp`/`memory_used` raus).
+
+---
+
+## DEC-020 — `_latest_batch_for_device` für die Übersicht
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+Im SmartHome kommt jeder Sensor als eigener Batch. `_device_current`, `_device_status`, `_device_chips`, `_led_value` schauten in `batches[-1]` und fanden nur den zuletzt sendenden Sensor.
+
+### Entscheidung
+
+Neue Funktion `_latest_batch_for_device(batches, key)` findet den letzten Batch, der Measurements für `key` enthält. Die vier Funktionen nutzen sie statt `batches[-1]`.
+
+### Konsequenz
+
+- `dashboard_data.py`: `_latest_batch_for_device()` (neu).
+- `_device_current`, `_device_status`, `_device_chips`, `_led_value` angepasst.
+- Übersicht zeigt jetzt alle Sensoren.
+
+---
+
+## DEC-021 — Batch-Limits als Workaround hochgesetzt
+
+**Status:** Accepted (Workaround)
+**Datum:** 2026-11-18
+
+### Kontext
+
+`_recent_batches` lud max. 192 Batches (Annahme: 4/Stunde). Im SmartHome sendet jeder Sensor unabhängig (~24 Batches/Stunde bei 3 Sensoren). Die Charts waren lückenhaft.
+
+### Entscheidung
+
+- `_recent_batches`: `limit = 192` → `5000`.
+- Detailseiten: `limit = hours * 4 + 100` → `hours * 30 + 100`.
+
+### Konsequenz
+
+- Charts zeigen mehr Daten.
+- **Offen:** Serverseitige Aggregation (SQL `GROUP BY` Zeitfenster) für 30d+, um nicht ~20000 Pakete laden zu müssen.
+
+---
+
 ## Offene Entscheidungen
 
 Folgende Punkte sind derzeit bewusst noch offen:

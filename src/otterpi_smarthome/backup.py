@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Backup der OtterPi-Datenbanken auf den NAS (SQL-Dump, CIFS-sicher).
 
-Erstellt tägliche Backups von ``batches.sqlite3`` und ``alerts.sqlite3``
+Erstellt tägliche Backups von ``smarthome.sqlite3`` und ``alerts.sqlite3``
 als SQL-Dump auf dem NAS (CIFS-Mount unter ``/mnt/otterbox``).
 
 Warum SQL-Dump statt ``.sqlite3``-Kopie: SQLite kann auf CIFS nicht
@@ -39,7 +39,7 @@ BACKUP_DIR = NAS_MOUNT / "OtterPi" / "backups_otterpi-smarthome"
 DB_DIR = Path("/var/lib/otterpi-smarthome")
 RETENTION_DAYS = 7
 
-HEALTHCHECK_URL = os.environ.get("OTTERPI_BACKUP_HEALTHCHECK_URL", "")
+HEALTHCHECK_URL = os.environ.get("SMARTHOME_BACKUP_HEALTHCHECK_URL", "")
 
 
 def _nas_ready() -> bool:
@@ -126,7 +126,7 @@ def main() -> int:
 
     date = datetime.now().strftime("%Y-%m-%d")
 
-    for name in ("batches", "alerts"):
+    for name in ("smarthome", "alerts"):
         src = DB_DIR / f"{name}.sqlite3"
         if not src.exists():
             LOGGER.warning("Database not found: %s", src)
@@ -140,7 +140,7 @@ def main() -> int:
             _ping_healthcheck("down", f"Backup failed: {name}")
             return 1
 
-    _rotate(BACKUP_DIR, "batches", RETENTION_DAYS)
+    _rotate(BACKUP_DIR, "smarthome", RETENTION_DAYS)
     _rotate(BACKUP_DIR, "alerts", RETENTION_DAYS)
 
     LOGGER.info("Backup complete.")

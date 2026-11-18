@@ -6,6 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 from dashboard import (
+    _device_measurement_keys,
     _render_climate_detail,
     _render_device_detail,
     _render_overview,
@@ -231,6 +232,14 @@ class TestDeviceCurrent:
         assert result["hum"] == 70.0
         assert result["value"] == "16.4 °C"
 
+    def test_id03_shows_temperature_and_humidity(self, sample_batches):
+        """ID03 zeigt temperature + humidity (nicht temperature_1)."""
+        result = _device_current(sample_batches, "weatherhub_test03", "weatherhub_id03")
+
+        assert result["temp"] == 21.3
+        assert result["hum"] == 48.0
+        assert result["value"] == "21.3 °C"
+
     def test_placeholder_returns_empty(self, sample_batches):
         """Platzhalter liefert keine Werte."""
         result = _device_current(sample_batches, "dryager", "placeholder")
@@ -251,6 +260,10 @@ class TestDeviceStatus:
         """Gültige Werte → status-ok."""
         assert _device_status(sample_batches, "weatherhub_test01", "weatherhub_id01") == "status-ok"
         assert _device_status(sample_batches, "weatherhub_test0e", "weatherhub_id0e") == "status-ok"
+
+    def test_status_id03(self, sample_batches):
+        """ID03 mit gültigen Werten → status-ok."""
+        assert _device_status(sample_batches, "weatherhub_test03", "weatherhub_id03") == "status-ok"
 
     def test_status_invalid(self):
         """Invalid → status-critical."""
@@ -491,3 +504,30 @@ def test_status_text_critical():
     assert _status_text("status-ok") == "OK"
     assert _status_text("status-warn") == "STALE"
     assert _status_text("status-off") == "OFFLINE"
+
+
+def test_device_measurement_keys_id03():
+    """ID03 liefert temperature/humidity, nicht temperature_1."""
+    device = {"key": "weatherhub_test03", "type": "weatherhub_id03"}
+    temp_key, hum_key = _device_measurement_keys(device)
+
+    assert temp_key == "weatherhub_test03.temperature"
+    assert hum_key == "weatherhub_test03.humidity"
+
+
+def test_device_measurement_keys_id0e():
+    """ID0E liefert temperature/humidity."""
+    device = {"key": "weatherhub_test0e", "type": "weatherhub_id0e"}
+    temp_key, hum_key = _device_measurement_keys(device)
+
+    assert temp_key == "weatherhub_test0e.temperature"
+    assert hum_key == "weatherhub_test0e.humidity"
+
+
+def test_device_measurement_keys_id01():
+    """ID01 liefert temperature_2 (Gerätetemperatur), keine Feuchte."""
+    device = {"key": "weatherhub_test01", "type": "weatherhub_id01"}
+    temp_key, hum_key = _device_measurement_keys(device)
+
+    assert temp_key == "weatherhub_test01.temperature_2"
+    assert hum_key is None

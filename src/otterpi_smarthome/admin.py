@@ -42,7 +42,7 @@ def render_admin(
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>🛠 ZOOLOGY-Observer Admin</title>
+<title>🛠 OtterPi-SmartHome Admin</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
 <style>
 * {{ box-sizing: border-box; }}
@@ -655,7 +655,7 @@ input[type="number"] {{
 <body>
 <div id="toast-container" class="toast-container"></div>
 <div class="container">
-<h1>🛠 ZOOLOGY-Observer Admin</h1>
+<h1>🛠 OtterPi-SmartHome Admin</h1>
 <div class="subtitle">
     <span class="lamp {status_class}"></span> {status_text}
     · Last measurement: {last_update}
@@ -799,7 +799,7 @@ input[type="number"] {{
         <summary>How-to: Configure notification channels</summary>
         <ol>
             <li><strong>ntfy:</strong> push notification to a topic (e.g.
-                <code>ZOOLOGY-Observer-alerts</code>). Install the ntfy app on your
+                <code>OtterPi-SmartHome-alerts</code>). Install the ntfy app on your
                 phone and subscribe to the topic. Optional: token for protected
                 topics.</li>
             <li><strong>Webhook:</strong> HTTP POST to a URL. Formats:
@@ -976,7 +976,7 @@ input[type="number"] {{
         </div>
     </div>
 </div>
-<div class="footer">🦦 otterpi · ZOOLOGY-Observer Admin {VERSION}</div>
+<div class="footer">🦦 otterpi · OtterPi-SmartHome Admin {VERSION}</div>
 </div>
 
 <script>

@@ -248,14 +248,21 @@ class WeatherHubReader:
 
         return measurements
 
-    def read_state(self) -> tuple[dict[str, object], dict[str, str]]:
+    def read_state(self, sensor_id: Optional[str] = None) -> dict[str, object]:
+        """Liefert die States (battery_low) für einen Sensor oder alle.
+
+        Wenn ``sensor_id`` gesetzt ist, werden nur die States dieses
+        Sensors zurückgegeben. Sonst die States aller bekannten Sensoren.
+        """
         states: dict[str, object] = {}
-        for sensor_id, packet in self._latest_packets.items():
-            prefix = f"weatherhub_{sensor_id.lower()}"
+        for sid, packet in self._latest_packets.items():
+            if sensor_id is not None and sid != sensor_id:
+                continue
+            prefix = f"weatherhub_{sid.lower()}"
             status = packet.decoded_values.get("status")
             if isinstance(status, dict) and "battery_low" in status:
                 states[prefix] = {"battery_low": status["battery_low"]}
-        return states, {}
+        return states
 
     def read_device_info(self) -> dict[str, object]:
         info: dict[str, object] = {}

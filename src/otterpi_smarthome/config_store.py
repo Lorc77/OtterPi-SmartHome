@@ -106,8 +106,8 @@ def _validate_rooms(data: Any) -> None:
     if not isinstance(data, dict):
         raise ConfigValidationError("rooms.json must be an object.")
     rooms = data.get("rooms")
-    if not isinstance(rooms, dict) or not rooms:
-        raise ConfigValidationError("rooms.json must contain a non-empty 'rooms' object.")
+    if not isinstance(rooms, dict):
+        raise ConfigValidationError("rooms.json must contain a 'rooms' object.")
 
     seen_keys: set[str] = set()
     for room_id, room in rooms.items():

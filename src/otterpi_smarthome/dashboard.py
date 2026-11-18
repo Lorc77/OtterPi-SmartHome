@@ -22,6 +22,7 @@ from dashboard_constants import (
 from dashboard_data import (
     _calculate_average_series,
     _calculate_stats,
+    _count_recent_batches,
     _current_values,
     _device_chips,
     _device_current,
@@ -32,6 +33,7 @@ from dashboard_data import (
     _recent_batches,
     _room_climate,
     _series,
+    _system_metrics,
 )
 from heartbeat import load_offline_thresholds, offline_status
 from otterpi_store import BatchStore
@@ -211,7 +213,18 @@ def _render_overview(store: BatchStore) -> str:
     """Einstiegsseite mit Raum-Kacheln."""
     batches = _recent_batches(store, hours=48)
     system_current = _current_values(batches)
+    system_metrics = _system_metrics()
+    packet_count = _count_recent_batches(store, hours=48)
     last_update = system_current["last_batch"]
+
+    cpu_temp_text = (
+        f"{system_metrics['cpu_temp']:.1f} °C" if system_metrics["cpu_temp"] is not None else "–"
+    )
+    memory_text = (
+        f"{system_metrics['memory_used']:.0f}%"
+        if system_metrics["memory_used"] is not None
+        else "–"
+    )
 
     room_cards = ""
     rooms = get_rooms()
@@ -269,7 +282,7 @@ def _render_overview(store: BatchStore) -> str:
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>📡 ZOOLOGY-Observer Dashboard</title>
+<title>🏡 OtterPi-SmartHome Dashboard</title>
 <style>
 * {{ box-sizing: border-box; }}
 
@@ -423,7 +436,7 @@ h1 {{ text-align: center; margin-top: 0; }}
 </head>
 <body>
 <div class="container">
-<h1>📡 ZOOLOGY-Observer Dashboard</h1>
+<h1>🏡 OtterPi-SmartHome Dashboard</h1>
 <div class="subtitle">
     <span class="lamp {status_class}"></span> {status_text}
     · Last measurement: {last_update}
@@ -441,21 +454,21 @@ h1 {{ text-align: center; margin-top: 0; }}
                 <span>Last packet:</span><span>{system_current["last_batch"]}</span>
             </div>
             <div class="system-line">
-                <span>CPU Temperature:</span><span>{system_current["cpu_temp"]:.1f} °C</span>
+                <span>CPU Temperature:</span><span>{cpu_temp_text}</span>
             </div>
             <div class="system-line">
-                <span>Memory (RAM):</span><span>{system_current["memory_used"]:.0f}%</span>
+                <span>Memory (RAM):</span><span>{memory_text}</span>
             </div>
         </div>
         <div>
             <div class="system-line">
-                <span>Packets (48h):</span><span>{len(batches)}</span>
+                <span>Packets (48h):</span><span>{packet_count}</span>
             </div>
         </div>
     </div>
 </div>
 
-<div class="footer">🦦 otterpi · ZOOLOGY-Observer Dashboard {VERSION}</div>
+<div class="footer">🦦 otterpi · OtterPi-SmartHome Dashboard {VERSION}</div>
 </div>
 </body>
 </html>
@@ -470,7 +483,7 @@ def _device_measurement_keys(device: dict) -> tuple[str, Optional[str]]:
         return (f"{key}.temperature", None)
     if device_type == "weatherhub_id01":
         return (f"{key}.temperature_2", None)
-    if device_type == "weatherhub_id0e":
+    if device_type in ("weatherhub_id0e", "weatherhub_id03"):
         return (f"{key}.temperature", f"{key}.humidity")
     return (f"{key}.temperature_1", f"{key}.humidity")
 
@@ -875,7 +888,7 @@ h1 {{ text-align: center; margin-top: 0; }}
 {device_cards}
 </div>
 
-<div class="footer">🦦 otterpi · ZOOLOGY-Observer Dashboard {VERSION}</div>
+<div class="footer">🦦 otterpi · OtterPi-SmartHome Dashboard {VERSION}</div>
 </div>
 
 <script>
@@ -917,7 +930,7 @@ def _render_climate_detail(
             pass
 
     # Bei 15-Min-Intervall: 4 Batches/Stunde + Puffer
-    limit = hours * 4 + 100
+    limit = hours * 30 + 100
     batches = _recent_batches(
         store,
         hours=hours,
@@ -1602,7 +1615,7 @@ h1 {{ text-align: center; margin-top: 0; }}
     </div>
 </div>
 
-<div class="footer">🦦 otterpi · ZOOLOGY-Observer Dashboard {VERSION}</div>
+<div class="footer">🦦 otterpi · OtterPi-SmartHome Dashboard {VERSION}</div>
 </div>
 
 <script>
@@ -2455,7 +2468,7 @@ h1 {{ text-align: center; margin-top: 0; }}
     </div>
 </div>
 
-<div class="footer">🦦 otterpi · ZOOLOGY-Observer Dashboard {VERSION}</div>
+<div class="footer">🦦 otterpi · OtterPi-SmartHome Dashboard {VERSION}</div>
 </div>
 
 <script>
