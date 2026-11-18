@@ -18,7 +18,7 @@ from otterpi_store import BatchStore
 
 @pytest.fixture(autouse=True)
 def _isolate_config(tmp_path, monkeypatch):
-    """Legt eine Test-rooms.json an und setzt OTTERPI_CONFIG_DIR."""
+    """Legt eine Test-rooms.json an und setzt SMARTHOME_CONFIG_DIR."""
     config_dir = tmp_path / "config"
     config_dir.mkdir()
     rooms = {
@@ -77,7 +77,7 @@ def _isolate_config(tmp_path, monkeypatch):
         }
     }
     (config_dir / "rooms.json").write_text(json.dumps(rooms), encoding="utf-8")
-    monkeypatch.setenv("OTTERPI_CONFIG_DIR", str(config_dir))
+    monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(config_dir))
     return config_dir
 
 

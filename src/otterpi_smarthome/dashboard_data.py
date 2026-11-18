@@ -447,8 +447,8 @@ _alarm_limits_cache = {"mtime": None, "data": None}
 def _load_alarm_limits_cached() -> dict:
     """Lädt alarm_limits.json mit mtime-Cache."""
     config_dir = os.environ.get(
-        "OTTERPI_CONFIG_DIR",
-        "/var/lib/loggerpi-otterpi/config",
+        "SMARTHOME_CONFIG_DIR",
+        "/var/lib/otterpi-smarthome/config",
     )
     path = Path(config_dir) / "alarm_limits.json"
     try:

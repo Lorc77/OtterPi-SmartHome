@@ -68,7 +68,7 @@ _ALLOWED_MESSAGE_KEYS = set(_DEFAULT_MESSAGES)
 
 
 def _config_dir() -> Path:
-    return Path(os.environ.get("OTTERPI_CONFIG_DIR", "/var/lib/loggerpi-otterpi/config"))
+    return Path(os.environ.get("SMARTHOME_CONFIG_DIR", "/var/lib/otterpi-smarthome/config"))
 
 
 def _path(name: str) -> Path:

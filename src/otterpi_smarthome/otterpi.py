@@ -522,7 +522,7 @@ class OtterPiHandler(BaseHTTPRequestHandler):
             return
 
         if self.path == "/otter2.png":
-            with open("/opt/loggerpi-otterpi/otter2.png", "rb") as f:
+            with open("/opt/otterpi-smarthome/otter2.png", "rb") as f:
                 body = f.read()
 
             self.send_response(200)

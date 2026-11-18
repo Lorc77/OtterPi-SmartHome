@@ -168,20 +168,20 @@ pytest
 git diff --check
 ```
 
-Aktueller Stand: **429 Tests**, alle bestehen.
+Aktueller Stand: **424 Tests**, alle bestehen.
 
 ---
 
 ## Version
 
-Aktuelle Version: **v0.1.0**
+Aktuelle Version: **v0.1.2**
 
 Die Version wird geführt über:
 
-- `pyproject.toml` → `version = "0.1.0"`
-- `src/otterpi_smarthome/__init__.py` → `__version__ = "0.1.0"`
-- `src/otterpi_smarthome/dashboard_constants.py` → `VERSION = "v0.1.0"`
-- Git-Tag `v0.1.0`
+- `pyproject.toml` → `version = "0.1.2"`
+- `src/otterpi_smarthome/__init__.py` → `__version__ = "0.1.2"`
+- `src/otterpi_smarthome/dashboard_constants.py` → `VERSION = "v0.1.2"`
+- Git-Tag `v0.1.2`
 
 ---
 

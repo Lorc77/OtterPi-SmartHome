@@ -222,13 +222,13 @@ class TestDeleteAlerts:
 
 class TestGetAlertsArchiveFilename:
     def test_with_year_month(self):
-        assert _get_alerts_archive_filename(2025, 10) == "loggerpi-otterpi_alerts_2025-10.json.gz"
+        assert _get_alerts_archive_filename(2025, 10) == "otterpi-smarthome_alerts_2025-10.json.gz"
 
     def test_without_year_month(self):
         now = datetime.now(timezone.utc)
         assert (
             _get_alerts_archive_filename(None, None)
-            == f"loggerpi-otterpi_alerts_{now.strftime('%Y-%m')}.json.gz"
+            == f"otterpi-smarthome_alerts_{now.strftime('%Y-%m')}.json.gz"
         )
 
 
@@ -273,7 +273,7 @@ class TestMainAlerts:
 
         main()
 
-        files = list(archive_dir.glob("loggerpi-otterpi_alerts_*.json.gz"))
+        files = list(archive_dir.glob("otterpi-smarthome_alerts_*.json.gz"))
         assert len(files) == 1
         assert _count_alerts(db_path) == 0
 

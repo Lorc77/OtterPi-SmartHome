@@ -117,7 +117,7 @@ MEASUREMENT_DISPLAY_NAMES = {
     "door_open": "Door",
     "contact_open": "Contact",
     "alarm": "Alarm",
-    "loggerpi_offline": "LoggerPi",
+    "gateway_offline": "Gateway",
 }
 
 UNIT_LABELS = {

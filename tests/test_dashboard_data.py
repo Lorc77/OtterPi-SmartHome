@@ -382,7 +382,7 @@ def test_average_series_downsampled_to_500():
 
 
 def test_no_invalid_chip_when_limit_violation(tmp_path, monkeypatch):
-    monkeypatch.setenv("OTTERPI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(tmp_path))
     (tmp_path / "alarm_limits.json").write_text(
         json.dumps(
             {
@@ -417,7 +417,7 @@ def test_no_invalid_chip_when_limit_violation(tmp_path, monkeypatch):
 
 
 def test_only_critical_chip_when_both_violated(tmp_path, monkeypatch):
-    monkeypatch.setenv("OTTERPI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(tmp_path))
     (tmp_path / "alarm_limits.json").write_text(
         json.dumps(
             {
@@ -449,7 +449,7 @@ def test_only_critical_chip_when_both_violated(tmp_path, monkeypatch):
 
 
 def test_stale_chip_always_shown_with_crit_limit(tmp_path, monkeypatch):
-    monkeypatch.setenv("OTTERPI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(tmp_path))
     (tmp_path / "alarm_limits.json").write_text(
         json.dumps(
             {
@@ -485,7 +485,7 @@ def test_stale_chip_always_shown_with_crit_limit(tmp_path, monkeypatch):
 
 
 def test_stale_and_battery_low_both_shown(tmp_path, monkeypatch):
-    monkeypatch.setenv("OTTERPI_CONFIG_DIR", str(tmp_path))
+    monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(tmp_path))
     (tmp_path / "alarm_limits.json").write_text(
         json.dumps({"sensors": {}}),
         encoding="utf-8",

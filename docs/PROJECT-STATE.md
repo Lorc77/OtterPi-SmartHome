@@ -4,7 +4,7 @@
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
 **Stand:** 2026-11-17
-**Version:** v0.1.0
+**Version:** v0.1.2
 
 ---
 
@@ -152,7 +152,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ### Teststand
 
-**429 Tests, alle grün.** Ruff/Format clean.
+**424 Tests, alle grün.** Ruff/Format clean.
 
 ---
 
@@ -323,6 +323,14 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 - Repo auf GitHub gepusht (`Lorc77/OtterPi-SmartHome`).
 - Tag `v0.1.0` gesetzt und gepusht.
 
+#### Bugfixes (v0.1.1) ✅
+- `archive_batches.py`: Pfade `/var/lib/loggerpi-otterpi/` → `/var/lib/otterpi-smarthome/`, Dateinamen `loggerpi-otterpi_*` → `otterpi-smarthome_*`.
+- `backup.py`: `BACKUP_DIR` → `backups_otterpi-smarthome`, `DB_DIR` → `/var/lib/otterpi-smarthome`.
+- `otterpi.py`: Bildpfad `/opt/loggerpi-otterpi/otter2.png` → `/opt/otterpi-smarthome/otter2.png`.
+- `config_store.py`, `dashboard_config.py`, `dashboard_data.py`: `OTTERPI_CONFIG_DIR` → `SMARTHOME_CONFIG_DIR`.
+- `admin.py`: Messages-Tab `loggerpi_offline`/`queue_depth`/`dead_letter` → `gateway_offline`.
+- **424 Tests grün.**
+
 #### CI-Fix (teilweise) 🟡
 - `runs-on: ubuntu-22.04` eingetragen.
 - **Noch offen:** Python-3.9-Job läuft noch in der Matrix. Entweder `ubuntu-22.04` beibehalten (dann läuft 3.9) oder auf 3.13-only umstellen (Phase 7).
@@ -331,15 +339,23 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 
 ### Offen
 
-#### Phase 4 — Deploy (in Arbeit)
+#### Phase 4 — Deploy
 - [ ] `sudo /usr/local/sbin/otterpi-smarthome-update smarthome`
 - [ ] Verifikation: `systemctl status`, `DEPLOYED_VERSION`, `ls -la /var/lib/otterpi-smarthome/`, `journalctl`
 
 #### Phase 5 — Gateway konfigurieren
 - [ ] Gateway auf `192.168.178.100:3779` zeigen lassen.
-- [ ] Proxy-Modus aktivieren.
+- [ ] Proxy-Modus aktivieren (`Use Proxy: Yes`, `Proxy Server Name: 192.168.178.100`, `Proxy Port: 3779`).
 - [ ] Cloud-Forward aktivieren (falls gewünscht).
-- [ ] Allowlist prüfen (`SMARTHOME_WEATHERHUB_ALLOWLIST`).
+- [ ] Allowlist prüfen (`SMARTHOME_WEATHERHUB_ALLOWLIST=192.168.178.31`).
+
+#### Phase 5.5 — nginx + Extern-Vorbereitung
+- [ ] nginx-Serverblock für `smarthome.makki.route64.de` → `127.0.0.1:8091`.
+- [ ] TLS-Zertifikat (certbot).
+- [ ] Basic Auth für `/admin` (`.htpasswd`).
+- [ ] Rate Limiting (optional).
+- [ ] `SMARTHOME_HOST=0.0.0.0` für LAN-Zugriff (oder `127.0.0.1` hinter nginx).
+- [ ] Verifikation: `https://smarthome.makki.route64.de/` und `/admin`.
 
 #### Phase 6 — Verifizieren
 - [ ] Dashboard (`http://192.168.178.100:8091/`).
@@ -350,12 +366,22 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 - [ ] Datenbank wächst.
 - [ ] Cloud-Forward funktioniert.
 
-#### Phase 7 — Python 3.13-Modernisierung (neu)
+#### Phase 7 — Python 3.13-Modernisierung + Refactoring
 - [ ] `pyproject.toml`: `requires-python = ">=3.13"`, `target-version = "py313"`, `FA102` weg, `per-file-ignores` weg.
 - [ ] `.github/workflows/ci.yml`: nur Python 3.13 (dann kann `ubuntu-22.04` wieder auf `ubuntu-latest`).
 - [ ] `docs/development/DEVELOPMENT.md`: Python 3.13 als Minimum.
 - [ ] Code: `Optional[str]` → `str | None`, `Union[str, Path]` → `str | Path` (Ruff `UP` meckert sonst).
 - [ ] Tests: `pytest` grün.
+- [ ] **Refactoring (toter Code aus LoggerPi-OtterPi):**
+  - [ ] `otterpi.py`: `POST /api/v1/batches` entfernen (ungenutzt, Daten kommen über WeatherHub-Listener).
+  - [ ] `otterpi.py`: `GET /api/admin/latest-measurements` mit `connectivity` bereinigen.
+  - [ ] `dashboard.py`: `_USB_NAMES`, `_render_led_svg` entfernen.
+  - [ ] `dashboard.py`: `_device_measurement_keys` auf WeatherHub-only reduzieren.
+  - [ ] `dashboard_data.py`: `_current_values` auf WeatherHub-only reduzieren.
+  - [ ] `dashboard_data.py`: `_device_current`, `_device_status`, `_primary_measurement` auf WeatherHub-only reduzieren.
+  - [ ] `dashboard_data.py`: `_ALARM_LABELS` entfernen.
+  - [ ] `sensor_schemas.py`: `MEASUREMENT_DISPLAY_NAMES` `loggerpi_offline` → `gateway_offline`.
+  - [ ] `smarthome_observer.py`: `SMARTHOME_CONFIG_DIR` explizit lesen (optional, Default ist okay).
 
 ---
 
@@ -363,6 +389,6 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 
 **Phase 4:** Deploy auf dem OtterPi (`sudo /usr/local/sbin/otterpi-smarthome-update smarthome`).
 
-Danach: Phase 5 (Gateway), Phase 6 (Verifizieren), Phase 7 (Python 3.13-Modernisierung).
+Danach: Phase 5 (Gateway), Phase 5.5 (nginx + Extern), Phase 6 (Verifizieren), Phase 7 (Python 3.13 + Refactoring).
 
 **Hinweis:** Der CI-Fix (`ubuntu-22.04`) ist nur eine Zwischenlösung. Mit Phase 7 (3.13-only) kann `ubuntu-latest` wieder verwendet werden.

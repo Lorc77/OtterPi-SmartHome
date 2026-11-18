@@ -36,9 +36,9 @@ from typing import Optional
 LOGGER = logging.getLogger(__name__)
 
 # Standard-Pfade
-DEFAULT_DATABASE = "/var/lib/loggerpi-otterpi/batches.sqlite3"
-DEFAULT_ALERT_DATABASE = "/var/lib/loggerpi-otterpi/alerts.sqlite3"
-DEFAULT_ARCHIVE_DIR = "/var/lib/loggerpi-otterpi/archive"
+DEFAULT_DATABASE = "/var/lib/otterpi-smarthome/smarthome.sqlite3"
+DEFAULT_ALERT_DATABASE = "/var/lib/otterpi-smarthome/alerts.sqlite3"
+DEFAULT_ARCHIVE_DIR = "/var/lib/otterpi-smarthome/archive"
 
 # Standard-Retention: 12 Monate
 RETENTION_DAYS = 365
@@ -232,9 +232,9 @@ def _get_archive_filename(year: Optional[int], month: Optional[int]) -> str:
     now = datetime.now(timezone.utc)
 
     if year is not None and month is not None:
-        return f"loggerpi-otterpi_batches_{year:04d}-{month:02d}.json.gz"
+        return f"otterpi-smarthome_batches_{year:04d}-{month:02d}.json.gz"
 
-    return f"loggerpi-otterpi_batches_{now.strftime('%Y-%m')}.json.gz"
+    return f"otterpi-smarthome_batches_{now.strftime('%Y-%m')}.json.gz"
 
 
 # ---------------------------------------------------------------------------
@@ -342,9 +342,9 @@ def _get_alerts_archive_filename(year: Optional[int], month: Optional[int]) -> s
     now = datetime.now(timezone.utc)
 
     if year is not None and month is not None:
-        return f"loggerpi-otterpi_alerts_{year:04d}-{month:02d}.json.gz"
+        return f"otterpi-smarthome_alerts_{year:04d}-{month:02d}.json.gz"
 
-    return f"loggerpi-otterpi_alerts_{now.strftime('%Y-%m')}.json.gz"
+    return f"otterpi-smarthome_alerts_{now.strftime('%Y-%m')}.json.gz"
 
 
 # ---------------------------------------------------------------------------

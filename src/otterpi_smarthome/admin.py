@@ -1763,9 +1763,7 @@ async function loadMessages() {{
                 ['alarm', 'Alarm'],
             ],
             'System': [
-                ['loggerpi_offline', 'LoggerPi Offline'],
-                ['queue_depth', 'Queue Depth'],
-                ['dead_letter', 'Dead-Letter'],
+                ['gateway_offline', 'Gateway Offline'],
             ],
         }};
         let html = '';
@@ -1797,7 +1795,7 @@ async function saveMessages() {{
             'critical_max', 'critical_min', 'warning_max', 'warning_min',
             'rate_of_change', 'invalid', 'stale',
             'battery_low', 'door_open', 'contact_open', 'alarm',
-            'loggerpi_offline', 'queue_depth', 'dead_letter',
+            'gateway_offline',
         ];
         const messages = {{}};
         for (const key of keys) {{

@@ -174,7 +174,7 @@ Die `pyproject.toml` definiert:
 - `testpaths = ["tests"]`
 - `pythonpath = ["src", "src/otterpi_smarthome", "src/otterpi_smarthome/model"]`
 
-Aktueller Stand: **429 Tests**, alle bestehen.
+Aktueller Stand: **424 Tests**, alle bestehen.
 
 ### Linting und Formatierung
 

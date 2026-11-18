@@ -282,13 +282,13 @@ class TestGetArchiveFilename:
     def test_with_year_month(self):
         """Mit Jahr und Monat."""
         filename = _get_archive_filename(2025, 10)
-        assert filename == "loggerpi-otterpi_batches_2025-10.json.gz"
+        assert filename == "otterpi-smarthome_batches_2025-10.json.gz"
 
     def test_without_year_month(self):
         """Ohne Jahr und Monat (aktuelles Datum)."""
         now = datetime.now(timezone.utc)
         filename = _get_archive_filename(None, None)
-        assert filename == f"loggerpi-otterpi_batches_{now.strftime('%Y-%m')}.json.gz"
+        assert filename == f"otterpi-smarthome_batches_{now.strftime('%Y-%m')}.json.gz"
 
 
 class TestMain:
@@ -300,7 +300,7 @@ class TestMain:
         _create_test_database(db_path, num_batches=5, days_old=400)
 
         archive_dir = tmp_path / "archive"
-        output_path = archive_dir / "loggerpi-otterpi_batches_TEST.json.gz"
+        output_path = archive_dir / "otterpi-smarthome_batches_TEST.json.gz"
 
         monkeypatch.setattr(
             "archive_batches.DEFAULT_DATABASE",

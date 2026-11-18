@@ -20,7 +20,7 @@ TEST_TOKEN = "lp-test-token-1234567890abcdef"
 
 @pytest.fixture(autouse=True)
 def _config_dir(tmp_path, monkeypatch):
-    monkeypatch.setenv("OTTERPI_CONFIG_DIR", str(tmp_path / "config"))
+    monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(tmp_path / "config"))
     return tmp_path / "config"
 
 

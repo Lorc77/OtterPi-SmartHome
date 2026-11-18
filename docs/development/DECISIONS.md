@@ -450,6 +450,55 @@ Die Typ-Prüfung ist ein Nice-to-have, kein Muss.
 
 ---
 
+## DEC-016 — Pfade, Config-Dir und Messages-Keys auf SmartHome umgestellt
+
+**Status:** Accepted
+**Datum:** 2026-11-17
+
+### Kontext
+
+Nach dem Kopieren aus LoggerPi-OtterPi waren noch mehrere Pfade und
+Config-Keys auf LoggerPi-OtterPi ausgerichtet:
+
+- `archive_batches.py` und `backup.py` verwendeten
+  `/var/lib/loggerpi-otterpi/` statt `/var/lib/otterpi-smarthome/`.
+- `otterpi.py` lud das Bild von `/opt/loggerpi-otterpi/otter2.png`.
+- `config_store.py`, `dashboard_config.py`, `dashboard_data.py` lasen
+  `OTTERPI_CONFIG_DIR` statt `SMARTHOME_CONFIG_DIR`.
+- `admin.py` Messages-Tab zeigte `loggerpi_offline`, `queue_depth`,
+  `dead_letter` statt `gateway_offline`.
+
+### Entscheidung
+
+Alle Pfade und Config-Keys werden auf SmartHome umgestellt:
+
+- `archive_batches.py`: `DEFAULT_DATABASE`, `DEFAULT_ALERT_DATABASE`,
+  `DEFAULT_ARCHIVE_DIR` → `/var/lib/otterpi-smarthome/`.
+- `archive_batches.py`: Dateinamen `loggerpi-otterpi_*` →
+  `otterpi-smarthome_*`.
+- `backup.py`: `BACKUP_DIR` → `backups_otterpi-smarthome`, `DB_DIR` →
+  `/var/lib/otterpi-smarthome`.
+- `otterpi.py`: Bildpfad → `/opt/otterpi-smarthome/otter2.png`.
+- `config_store.py`, `dashboard_config.py`, `dashboard_data.py`:
+  `OTTERPI_CONFIG_DIR` → `SMARTHOME_CONFIG_DIR`.
+- `admin.py`: Messages-Tab `loggerpi_offline`/`queue_depth`/`dead_letter`
+  → `gateway_offline`.
+
+### Begründung
+
+Die Pfade und Keys waren Überbleibsel aus LoggerPi-OtterPi. Im SmartHome
+gibt es keinen LoggerPi, keine Queue und keinen Dead-Letter. Die
+Config-Keys müssen zu den Env-Variablen in `smarthome.env` passen.
+
+### Konsequenz
+
+- `archive_batches.py`, `backup.py`, `otterpi.py`, `config_store.py`,
+  `dashboard_config.py`, `dashboard_data.py`, `admin.py` angepasst.
+- Tests angepasst.
+- **424 Tests grün.**
+
+---
+
 ## Offene Entscheidungen
 
 Folgende Punkte sind derzeit bewusst noch offen:

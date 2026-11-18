@@ -35,8 +35,8 @@ from pathlib import Path
 LOGGER = logging.getLogger(__name__)
 
 NAS_MOUNT = Path("/mnt/otterbox")
-BACKUP_DIR = NAS_MOUNT / "OtterPi" / "backups_loggerpi-otterpi"
-DB_DIR = Path("/var/lib/loggerpi-otterpi")
+BACKUP_DIR = NAS_MOUNT / "OtterPi" / "backups_otterpi-smarthome"
+DB_DIR = Path("/var/lib/otterpi-smarthome")
 RETENTION_DAYS = 7
 
 HEALTHCHECK_URL = os.environ.get("OTTERPI_BACKUP_HEALTHCHECK_URL", "")

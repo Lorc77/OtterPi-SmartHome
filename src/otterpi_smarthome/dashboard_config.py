@@ -20,7 +20,7 @@ _cache = {"path": None, "mtime": None, "rooms": None}
 
 
 def _rooms_path() -> Path:
-    config_dir = os.environ.get("OTTERPI_CONFIG_DIR", "/var/lib/loggerpi-otterpi/config")
+    config_dir = os.environ.get("SMARTHOME_CONFIG_DIR", "/var/lib/otterpi-smarthome/config")
     return Path(config_dir) / "rooms.json"
 
 
