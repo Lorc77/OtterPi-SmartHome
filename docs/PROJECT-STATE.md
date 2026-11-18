@@ -3,7 +3,7 @@
 **Projekt:** OtterPi-SmartHome
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
-**Stand:** 2026-11-17
+**Stand:** 2026-11-18
 **Version:** v0.1.3
 
 ---
@@ -45,7 +45,7 @@ Dashboard + Admin (Port 8091)
 | Service | Port | Datenbank | Zweck |
 |---|---:|---|---|
 | `otterpi.observer.service` | 8090 | `batches.sqlite3` | Dienstlich (LoggerPi) |
-| `otterpi-smarthome.observer.service` | 8091 | `smarthome.sqlite3` | Privat (SmartHome) |
+| `smarthome.observer.service` | 8091 | `smarthome.sqlite3` | Privat (SmartHome) |
 
 ---
 
@@ -85,7 +85,7 @@ Das Gateway sendet zusätzlich an `www.data199.com` (TFA-Cloud). Der
 | Datenbank | `/var/lib/otterpi-smarthome/smarthome.sqlite3` |
 | Config | `/var/lib/otterpi-smarthome/config/` |
 | Env | `/etc/otterpi-smarthome/smarthome.env` |
-| Service | `otterpi-smarthome.observer.service` |
+| Service | `smarthome.observer.service` |
 
 ### 3.6 Package-Name
 
@@ -158,50 +158,50 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ## 5. Offen
 
-### Phase 3 — Doku (in Arbeit)
+### Phase 3 — Doku
 
 - [x] `README.md`
 - [x] `docs/PROJECT-STATE.md`
-- [ ] `docs/development/DECISIONS.md`
-- [ ] `docs/deployment/DEPLOYMENT.md`
-- [ ] `docs/development/DEVELOPMENT.md`
-- [ ] `docs/weatherhub.md`
+- [x] `docs/development/DECISIONS.md`
+- [x] `docs/deployment/DEPLOYMENT.md`
+- [x] `docs/development/DEVELOPMENT.md`
+- [x] `docs/weatherhub.md`
 
 ### Phase 4 — Deploy
 
-- [ ] Repo auf GitHub pushen (`Lorc77/OtterPi-SmartHome`).
-- [ ] Auf dem OtterPi deployen (`sudo /usr/local/sbin/otterpi-smarthome-update smarthome`).
-- [ ] Verifikation (Service, DB, Dashboard, Admin).
+- [x] Repo auf GitHub pushen (`Lorc77/OtterPi-SmartHome`).
+- [x] Auf dem OtterPi deployen (`sudo /usr/local/sbin/otterpi-smarthome-update smarthome`).
+- [x] Verifikation (Service, DB, Dashboard, Admin).
 
 ### Phase 5 — Gateway konfigurieren
 
-- [ ] Gateway auf `192.168.178.100:3779` zeigen lassen.
-- [ ] Proxy-Modus aktivieren.
-- [ ] Cloud-Forward aktivieren (falls gewünscht).
-- [ ] Allowlist prüfen (`SMARTHOME_WEATHERHUB_ALLOWLIST`).
+- [x] Gateway auf `192.168.178.100:3779` zeigen lassen.
+- [x] Proxy-Modus aktivieren.
+- [x] Cloud-Forward aktivieren (falls gewünscht).
+- [x] Allowlist prüfen (`SMARTHOME_WEATHERHUB_ALLOWLIST`).
 
 ### Phase 6 — Verifizieren
 
-- [ ] Dashboard (`http://192.168.178.100:8091/`).
-- [ ] Admin (`http://192.168.178.100:8091/admin`).
-- [ ] Räume anlegen, Sensoren zuordnen.
-- [ ] Alarm Limits konfigurieren.
-- [ ] Mail/Notifications/Messages konfigurieren.
-- [ ] Datenbank wächst.
-- [ ] Cloud-Forward funktioniert.
+- [x] Dashboard (`http://192.168.178.100:8091/`).
+- [x] Admin (`http://192.168.178.100:8091/admin`).
+- [x] Räume anlegen, Sensoren zuordnen.
+- [x] Alarm Limits konfigurieren.
+- [x] Mail/Notifications/Messages konfigurieren.
+- [x] Datenbank wächst.
+- [x] Cloud-Forward funktioniert.
 
 ---
 
-## 6. Offene Fragen
+## 6. Beantwortete Fragen
 
-1. **Welche WeatherHub-Sensoren** gehen ins SmartHome? (Sensor-IDs?)
-2. **Welche Räume/Geräte** sollen im Dashboard erscheinen?
-3. **Welche Alarm-Regeln** (Limits, States) sollen konfiguriert werden?
-4. **Welche Notifier** (E-Mail, ntfy, Webhook)?
-5. **Welche Gateway-IP** ist die Allowlist?
-6. **Soll das SmartHome-Dashboard** auch loggerpi-otterpi-Daten zeigen? (Aktuell: nein, zwei getrennte Dashboards.)
-7. **Soll das SmartHome** eine eigene Alert-Engine haben? (Ja, für SmartHome-Sensoren.)
-8. **Soll das SmartHome** eine eigene Archivierung haben? (Ja, gleicher Timer-Mechanismus.)
+1. **Welche WeatherHub-Sensoren** gehen ins SmartHome? → ID01 (aktuell produktiv), ID03/ID0E/ID10 vorbereitet.
+2. **Welche Räume/Geräte** sollen im Dashboard erscheinen? → 3 Räume, konfiguriert über Admin.
+3. **Welche Alarm-Regeln** (Limits, States) sollen konfiguriert werden? → konfiguriert über Admin.
+4. **Welche Notifier** (E-Mail, ntfy, Webhook)? → ntfy + E-Mail (Gmail).
+5. **Welche Gateway-IP** ist die Allowlist? → `192.168.178.31`.
+6. **Soll das SmartHome-Dashboard** auch loggerpi-otterpi-Daten zeigen? → Nein, zwei getrennte Dashboards.
+7. **Soll das SmartHome** eine eigene Alert-Engine haben? → Ja, für SmartHome-Sensoren.
+8. **Soll das SmartHome** eine eigene Archivierung haben? → Ja, gleicher Timer-Mechanismus.
 
 ---
 
@@ -212,8 +212,8 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 - `weatherhub_gateway_listener.py`
 - `weatherhub_gateway_decoder.py`
 - `weatherhub.py` (mit Erweiterung)
-- `otterpi.py` → `smarthome.py`
-- `otterpi_store.py` → `smarthome_store.py`
+- `otterpi.py` (noch nicht umbenannt, siehe Phase 7)
+- `otterpi_store.py` (noch nicht umbenannt, siehe Phase 7)
 - `dashboard.py`, `dashboard_config.py`, `dashboard_constants.py`, `dashboard_data.py`, `dashboard_charts.py`
 - `admin.py`, `config_store.py`, `notifier.py`
 - `alert_store.py`, `alert_engine.py`, `heartbeat.py`
@@ -273,8 +273,8 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 ### Verifikation
 
 ```bash
-systemctl status otterpi-smarthome.observer.service --no-pager
-journalctl -u otterpi-smarthome.observer.service -n 50 --no-pager
+systemctl status smarthome.observer.service --no-pager
+journalctl -u smarthome.observer.service -n 50 --no-pager
 cat /opt/otterpi-smarthome/DEPLOYED_VERSION
 ls -la /var/lib/otterpi-smarthome/
 ```
@@ -283,11 +283,9 @@ ls -la /var/lib/otterpi-smarthome/
 
 ## 10. Nächster konkreter Schritt
 
-**Phase 3:** `docs/development/DECISIONS.md` anlegen.
+**Phase 5.5 (nginx + Extern)** oder **Phase 7 (Refactoring)** — je nach Priorität.
 
-Danach: `docs/deployment/DEPLOYMENT.md`, `docs/development/DEVELOPMENT.md`, `docs/weatherhub.md`.
-
-Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
+Danach: Phase 8 (Serverseitige Aggregation).
 
 ---
 
@@ -362,8 +360,9 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 - `admin.py`/`dashboard.py`: „ZOOLOGY-Observer" → „OtterPi-SmartHome", Dashboard-Icon `📡` → `🏡`.
 - `weatherhub.py`/`smarthome_bridge.py`: `read_state(sensor_id)` filtert States auf das aktuelle Paket.
 - `dashboard_data.py`: `_count_recent_batches()` für exakte „Packets (48h)"-Anzeige.
-- `dashboard_data.py`: `_latest_batch_for_device()` — Übersicht zeigt jetzt alle Sensoren, nicht nur den letzten.
+- `dashboard_data.py`: `_latest_batch_for_device()` — Übersicht und Raumklima zeigen jetzt alle Sensoren, nicht nur den letzten.
 - `dashboard_data.py`/`dashboard.py`: Limits hochgesetzt (`_recent_batches` 192 → 5000, Detailseiten `hours * 4 + 100` → `hours * 30 + 100`).
+- `notifier.py`: `EmailNotifier.send()` fällt bei leerem `routing.<severity>` auf `recipients` zurück (`self.routing.get(alert.severity) or self.recipients`).
 
 ---
 
@@ -374,20 +373,11 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
 - [ ] TLS-Zertifikat (certbot).
 - [ ] Basic Auth für `/admin` (`.htpasswd`).
 - [ ] Rate Limiting (optional).
-- [ ] `SMARTHOME_HOST=0.0.0.0` für LAN-Zugriff (oder `127.0.0.1` hinter nginx).
+- [x] `SMARTHOME_HOST=0.0.0.0` für LAN-Zugriff (aktuell LAN-only).
 - [ ] Verifikation: `https://smarthome.makki.route64.de/` und `/admin`.
 
-#### Phase 6 — Verifizieren
-- [x] Dashboard (`http://192.168.178.100:8091/`).
-- [x] Admin (`http://192.168.178.100:8091/admin`).
-- [ ] Räume anlegen, Sensoren zuordnen.
-- [ ] Alarm Limits konfigurieren.
-- [ ] Mail/Notifications/Messages konfigurieren.
-- [x] Datenbank wächst.
-- [ ] Cloud-Forward funktioniert.
-
-#### Bugfix — `_validate_rooms` erlaubt keine leeren `rooms`
-- [ ] `config_store.py::_validate_rooms`: `if not isinstance(rooms, dict) or not rooms:` → `if not isinstance(rooms, dict):`. Sonst schlägt das erste Raum-Anlegen fehl (`rooms.json must contain a non-empty 'rooms' object`).
+#### Bugfix — `_validate_rooms` erlaubt leere `rooms` ✅
+- [x] `config_store.py::_validate_rooms`: `if not isinstance(rooms, dict) or not rooms:` → `if not isinstance(rooms, dict):`. (DEC-018, umgesetzt.)
 
 #### Phase 7 — Python 3.13-Modernisierung + Refactoring
 - [ ] `pyproject.toml`: `requires-python = ">=3.13"`, `target-version = "py313"`, `FA102` weg, `per-file-ignores` weg.
@@ -405,13 +395,28 @@ Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
   - [ ] `dashboard_data.py`: `_ALARM_LABELS` entfernen.
   - [ ] `sensor_schemas.py`: `MEASUREMENT_DISPLAY_NAMES` `loggerpi_offline` → `gateway_offline`.
   - [ ] `smarthome_observer.py`: `SMARTHOME_CONFIG_DIR` explizit lesen (optional, Default ist okay).
+  - [ ] `admin.py`: `connectivity`-Parameter aus `render_admin` entfernen (ungenutzt).
+  - [ ] `sensor_schemas.py`: `temperature_3`, `temperature_4` aus `MEASUREMENT_DISPLAY_NAMES` entfernen (ungenutzt).
+  - [ ] `config_store.py`: `stale_after_seconds` aus `_ALLOWED_LIMIT_KEYS` entfernen (nicht ausgewertet).
+  - [ ] `otterpi.py` / `otterpi_store.py` umbenennen → `smarthome.py` / `smarthome_store.py` (betrifft `install.sh`, `smarthome_observer.py`, Tests).
+
+#### Phase 8 — Serverseitige Aggregation für lange Zeiträume
+- [ ] **Problem:** Detailseiten laden aktuell alle Batches in den RAM (bei 30d und 3 Sensoren ~20000 Pakete). Das ist RAM-intensiv und skaliert nicht.
+- [ ] **Ziel:** Aggregation in SQL (`GROUP BY` Zeitfenster), sodass nur ~500 Punkte geladen werden statt ~20000.
+- [ ] **Ansatz:**
+  - [ ] Neue Funktion `_aggregated_series(store, key, hours, buckets=500)` in `dashboard_data.py`.
+  - [ ] SQL: `SELECT strftime('%Y-%m-%dT%H:%M', created_at) AS bucket, AVG(json_extract(payload, '$.measurements.<key>.value')) FROM batches WHERE created_at >= ? GROUP BY bucket`.
+  - [ ] `_render_device_detail` und `_render_climate_detail` auf `_aggregated_series` umstellen.
+  - [ ] `_recent_batches`-Limit kann dann wieder sinken (z.B. 5000 bleibt für 48h-Übersicht).
+- [ ] **Offen:** Wie mit `validity` (stale/invalid) in der Aggregation umgehen? (Nur `valid` zählen?)
+- [ ] **Offen:** Downsampling-Intervall pro Zeitraum (z.B. 24h → 5 min, 7d → 1 h, 30d → 6 h).
 
 ---
 
 ### Nächster konkreter Schritt
 
-**Bugfix `_validate_rooms`:** Leere `rooms` erlauben, damit das erste Raum-Anlegen über das Formular funktioniert.
+**Phase 5.5 (nginx + Extern)** oder **Phase 7 (Refactoring)** — je nach Priorität.
 
-Danach: Phase 5.5 (nginx + Extern), Phase 6 (Verifizieren), Phase 7 (Python 3.13 + Refactoring).
+Danach: Phase 8 (Serverseitige Aggregation).
 
 **Hinweis:** Der CI-Fix (`ubuntu-22.04`) ist nur eine Zwischenlösung. Mit Phase 7 (3.13-only) kann `ubuntu-latest` wieder verwendet werden.

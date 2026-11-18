@@ -58,7 +58,7 @@ class EmailNotifier:
         self.password = password
 
     def send(self, alert: Alert) -> bool:
-        recipients = self.routing.get(alert.severity, self.recipients)
+        recipients = self.routing.get(alert.severity) or self.recipients
         if not recipients:
             return True
         msg = EmailMessage()
