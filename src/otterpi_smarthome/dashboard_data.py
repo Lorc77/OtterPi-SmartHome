@@ -113,17 +113,19 @@ def _room_climate(batches: list[dict], room: dict) -> dict:
     if not batches:
         return {"temp": None, "hum": None}
 
-    latest = batches[-1]
-    measurements = latest.get("measurements", {})
-
     for device in room["devices"]:
         if device.get("type") == "weatherhub_id01":
             key = device["key"]
+            latest = _latest_batch_for_device(batches, key)
+            measurements = latest.get("measurements", {})
             temp = measurements.get(f"{key}.temperature_1", {})
             if temp.get("value") is not None:
                 temps.append(temp["value"])
 
     for sensor_key in room.get("weatherhub_climate", []):
+        latest = _latest_batch_for_device(batches, sensor_key)
+        measurements = latest.get("measurements", {})
+
         temp = measurements.get(f"{sensor_key}.temperature", {})
         if temp.get("value") is not None:
             temps.append(temp["value"])
