@@ -2570,7 +2570,7 @@ def _render_device_card(device: dict, device_views: list[dict]) -> str:
     device_key = device["key"]
     device_link = f"/device/{device_key}"
 
-    if device["type"] in ("freezer", "memmert", "weatherhub_id01"):
+    if device["type"] in ("freezer", "memmert", "weatherhub_id01", "weatherhub_id02"):
         # Nur Temperatur-Kachel (ohne Feuchte) - Status-Text statt Temperatur
         return f"""
     <a class="device-card{full_width_class}" href="{device_link}">
