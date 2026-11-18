@@ -11,19 +11,17 @@ from model.measurement import Measurement
 from weatherhub_gateway_decoder import BootPacket, GatewayPacket
 
 
-def _contact_timestamp(contact: dict, gateway_timestamp: int) -> int:
-    """Berechnet den Unix-Timestamp aus time_unit/elapsed_value."""
+def _contact_elapsed_seconds(contact: dict) -> int:
+    """Berechnet die verstrichenen Sekunden aus time_unit/elapsed_value."""
     unit = contact.get("time_unit", 3)
     elapsed = contact.get("elapsed_value", 0)
     if unit == 0:
-        elapsed_seconds = 86400 * elapsed
-    elif unit == 1:
-        elapsed_seconds = 3600 * elapsed
-    elif unit == 2:
-        elapsed_seconds = 60 * elapsed
-    else:
-        elapsed_seconds = elapsed
-    return gateway_timestamp - elapsed_seconds
+        return 86400 * elapsed
+    if unit == 1:
+        return 3600 * elapsed
+    if unit == 2:
+        return 60 * elapsed
+    return elapsed
 
 
 class WeatherHubReader:
@@ -292,14 +290,14 @@ class WeatherHubReader:
 
             # ID10: contact_open + Zeitpunkt + previous events
             if packet.sensor_type == 0x10:
+                current_ts = packet.gateway_timestamp
                 for suffix in ("", "_previous", "_previous_1", "_previous_2"):
                     contact = decoded.get(f"contact{suffix}")
                     if isinstance(contact, dict):
                         sensor_states[f"contact{suffix}_open"] = contact.get("open", False)
                         if "time_unit" in contact:
-                            sensor_states[f"contact{suffix}_since"] = _contact_timestamp(
-                                contact, packet.gateway_timestamp
-                            )
+                            current_ts -= _contact_elapsed_seconds(contact)
+                            sensor_states[f"contact{suffix}_since"] = current_ts
 
             if sensor_states:
                 states[prefix] = sensor_states
