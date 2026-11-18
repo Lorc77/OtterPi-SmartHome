@@ -45,11 +45,13 @@ class SmartHomeBridge:
             if not measurements:
                 continue
 
+            states, _ = self.reader.read_state()
             batch = Batch(
                 batch_id=str(uuid4()),
                 logger_id=self.logger_id,
                 sequence=self.sequence_store.next(),
                 created_at=datetime.now(timezone.utc).isoformat(),
                 measurements=measurements,
+                states=states or None,
             )
             self.store.store(batch)
