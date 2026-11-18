@@ -249,19 +249,35 @@ class WeatherHubReader:
         return measurements
 
     def read_state(self, sensor_id: Optional[str] = None) -> dict[str, object]:
-        """Liefert die States (battery_low) für einen Sensor oder alle.
+        """Liefert die States für einen Sensor oder alle.
 
-        Wenn ``sensor_id`` gesetzt ist, werden nur die States dieses
-        Sensors zurückgegeben. Sonst die States aller bekannten Sensoren.
+        Enthält ``battery_low`` (alle Sensoren), ``water_contact`` (ID04)
+        und ``contact_open`` (ID10).
         """
         states: dict[str, object] = {}
         for sid, packet in self._latest_packets.items():
             if sensor_id is not None and sid != sensor_id:
                 continue
             prefix = f"weatherhub_{sid.lower()}"
-            status = packet.decoded_values.get("status")
+            decoded = packet.decoded_values
+            sensor_states: dict[str, object] = {}
+
+            status = decoded.get("status")
             if isinstance(status, dict) and "battery_low" in status:
-                states[prefix] = {"battery_low": status["battery_low"]}
+                sensor_states["battery_low"] = status["battery_low"]
+
+            # ID04: water_contact
+            if packet.sensor_type == 0x04 and "water_contact_raw" in decoded:
+                sensor_states["water_contact"] = bool(decoded["water_contact_raw"])
+
+            # ID10: contact_open
+            if packet.sensor_type == 0x10 and "contact" in decoded:
+                contact = decoded["contact"]
+                if isinstance(contact, dict):
+                    sensor_states["contact_open"] = contact.get("open", False)
+
+            if sensor_states:
+                states[prefix] = sensor_states
         return states
 
     def read_device_info(self) -> dict[str, object]:

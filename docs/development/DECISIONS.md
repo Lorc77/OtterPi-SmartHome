@@ -642,6 +642,51 @@ Neue Funktion `_latest_batch_for_device(batches, key)` findet den letzten Batch,
 
 ---
 
+## DEC-022 — ID04 und ID10 unterstützt
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+ID04 (Temperatur + Feuchte + Wasserkontakt) und ID10 (Tür-/Fensterkontakt) waren im Decoder vorbereitet, aber nicht im Dashboard. `read_state()` gab nur `battery_low` zurück.
+
+### Entscheidung
+
+- `read_state()` liefert jetzt auch `water_contact` (ID04) und `contact_open` (ID10).
+- `_device_measurement_keys`, `_device_current`, `_device_status`, `_primary_measurement` behandeln ID04 wie ID03/ID0E.
+- ID10 hat keine Measurements; `_device_measurement_keys` gibt `(None, None)` zurück, `_device_status` prüft nur States.
+- `_latest_batch_for_device` berücksichtigt jetzt auch States (für ID10).
+
+### Konsequenz
+
+- ID04 zeigt Temperatur + Feuchte + Wasserkontakt-Chip.
+- ID10 zeigt „–" für Temperatur (Anzeige kommt später), aber Status + Contact-Chip.
+- ID07 bleibt vorerst außen vor (4 Measurements, eigene Karten-Logik nötig).
+
+---
+
+## DEC-023 — `DASHBOARD_DEVICE_TYPES` für Admin-Dropdown
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+Die „Add Device"-Dropdown im Admin zeigte alle Typen aus `SENSOR_SCHEMAS` — auch `weatherhub_id07`, das im Dashboard nicht funktioniert.
+
+### Entscheidung
+
+Neue Konstante `DASHBOARD_DEVICE_TYPES` in `sensor_schemas.py` mit den im Dashboard unterstützten Typen. `admin.py` verwendet sie für die Dropdown-Liste.
+
+### Konsequenz
+
+- `sensor_schemas.py`: `DASHBOARD_DEVICE_TYPES` (neu).
+- `admin.py`: Dropdown nutzt `DASHBOARD_DEVICE_TYPES` statt `Object.keys(SENSOR_SCHEMAS)`.
+- ID07 ist ausgeblendet, bis es im Dashboard unterstützt wird.
+
+---
+
 ## Offene Entscheidungen
 
 Folgende Punkte sind derzeit bewusst noch offen:

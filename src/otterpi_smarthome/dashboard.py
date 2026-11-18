@@ -475,7 +475,7 @@ h1 {{ text-align: center; margin-top: 0; }}
 """
 
 
-def _device_measurement_keys(device: dict) -> tuple[str, Optional[str]]:
+def _device_measurement_keys(device: dict) -> tuple[Optional[str], Optional[str]]:
     """Liefert (temp_key, hum_key) für ein Gerät."""
     device_type = device.get("type", "atmoweb")
     key = device["key"]
@@ -483,8 +483,12 @@ def _device_measurement_keys(device: dict) -> tuple[str, Optional[str]]:
         return (f"{key}.temperature", None)
     if device_type == "weatherhub_id01":
         return (f"{key}.temperature_2", None)
-    if device_type in ("weatherhub_id0e", "weatherhub_id03"):
+    if device_type == "weatherhub_id02":
+        return (f"{key}.temperature", None)
+    if device_type in ("weatherhub_id0e", "weatherhub_id03", "weatherhub_id04"):
         return (f"{key}.temperature", f"{key}.humidity")
+    if device_type == "weatherhub_id10":
+        return (None, None)
     return (f"{key}.temperature_1", f"{key}.humidity")
 
 
@@ -493,7 +497,7 @@ def _device_series(batches: list[dict], device: dict) -> tuple[list[dict], list[
     if device.get("type") == "placeholder":
         return ([], [])
     temp_key, hum_key = _device_measurement_keys(device)
-    temp_series = _series(batches, temp_key)
+    temp_series = _series(batches, temp_key) if temp_key else []
     hum_series = _series(batches, hum_key) if hum_key else []
     return (temp_series, hum_series)
 
@@ -528,7 +532,7 @@ def _render_room_detail(store: BatchStore, room_id: str) -> str:
         chart_id = f"chart-{device['key'].replace('_', '-')}"
         limits = _device_limits(device["key"])
         temp_key, hum_key = _device_measurement_keys(device)
-        limit_chips_temp = _render_limit_chips(limits, temp_key, "°C")
+        limit_chips_temp = _render_limit_chips(limits, temp_key, "°C") if temp_key else ""
         limit_chips_hum = _render_limit_chips(limits, hum_key, "%") if hum_key else ""
 
         limit_lines = []
@@ -1795,9 +1799,7 @@ def _render_device_detail(
 
     # Messwert-Schlüssel je nach Gerätetyp bestimmen
     temp_key, hum_key = _device_measurement_keys(device_info)
-
-    # Serien laden
-    temp_series = _series(batches, temp_key)
+    temp_series = _series(batches, temp_key) if temp_key else []
     hum_series = _series(batches, hum_key) if hum_key else []
 
     # Aktuelle Werte

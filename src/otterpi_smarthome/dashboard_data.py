@@ -290,10 +290,11 @@ def _current_values(batches: list[dict]) -> dict:
 
 
 def _latest_batch_for_device(batches: list[dict], key: str) -> dict:
-    """Findet den letzten Batch, der Measurements für ``key`` enthält."""
+    """Findet den letzten Batch, der Measurements oder States für ``key`` enthält."""
     for batch in reversed(batches):
         measurements = batch.get("measurements", {})
-        if any(k.startswith(f"{key}.") for k in measurements):
+        states = batch.get("states", {})
+        if any(k.startswith(f"{key}.") for k in measurements) or key in states:
             return batch
     return {}
 
@@ -338,7 +339,16 @@ def _device_current(batches: list[dict], key: str, device_type: str = "atmoweb")
 
         return result
 
-    if device_type in ("weatherhub_id0e", "weatherhub_id03"):
+    if device_type == "weatherhub_id02":
+        temp = measurements.get(f"{key}.temperature", {})
+        if temp.get("value") is not None:
+            result["temp"] = temp["value"]
+            result["value"] = f"{temp['value']:.1f} °C"
+        if result["temp"] != 0.0:
+            result["status"] = "lamp-ok"
+        return result
+
+    if device_type in ("weatherhub_id0e", "weatherhub_id03", "weatherhub_id04"):
         temp = measurements.get(f"{key}.temperature", {})
         hum = measurements.get(f"{key}.humidity", {})
 
@@ -352,6 +362,9 @@ def _device_current(batches: list[dict], key: str, device_type: str = "atmoweb")
         if result["temp"] > 0 or result["hum"] > 0:
             result["status"] = "lamp-ok"
 
+        return result
+
+    if device_type == "weatherhub_id10":
         return result
 
     temp = measurements.get(f"{key}.temperature_1", {})
@@ -390,8 +403,15 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
     if limit_status == "status-critical":
         return "status-critical"
 
-    if device_type in ("freezer", "memmert", "weatherhub_id01", "weatherhub_id0e"):
-        if device_type in ("freezer", "memmert"):
+    if device_type == "weatherhub_id10":
+        if states.get("contact_open"):
+            return "status-warn"
+        if states.get("battery_low"):
+            return "status-warn"
+        return "status-ok"
+
+    if device_type in ("freezer", "memmert", "weatherhub_id01", "weatherhub_id02"):
+        if device_type in ("freezer", "memmert", "weatherhub_id02"):
             measurement_key = f"{key}.temperature"
         elif device_type == "weatherhub_id01":
             measurement_key = f"{key}.temperature_2"
@@ -413,7 +433,7 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
             return "status-ok"
         return "status-off"
 
-    if device_type in ("weatherhub_id0e", "weatherhub_id03"):
+    if device_type in ("weatherhub_id0e", "weatherhub_id03", "weatherhub_id04"):
         temp = measurements.get(f"{key}.temperature", {})
     else:
         temp = measurements.get(f"{key}.temperature_1", {})
@@ -579,12 +599,19 @@ _ALARM_LABELS = {
 
 
 def _primary_measurement(measurements: dict, key: str, device_type: str) -> dict:
-    if device_type in ("freezer", "memmert"):
+    if device_type in (
+        "freezer",
+        "memmert",
+        "weatherhub_id0e",
+        "weatherhub_id02",
+        "weatherhub_id03",
+        "weatherhub_id04",
+    ):
         return measurements.get(f"{key}.temperature", {})
     if device_type == "weatherhub_id01":
         return measurements.get(f"{key}.temperature_2", {})
-    if device_type == "weatherhub_id0e":
-        return measurements.get(f"{key}.temperature", {})
+    if device_type == "weatherhub_id10":
+        return {}
     return measurements.get(f"{key}.temperature_1", {})
 
 
@@ -695,6 +722,10 @@ def _device_chips(
             chips.append(("⚠ Stale", "chip-warn"))
 
     # 5) State-Chips
+    if states.get("water_contact"):
+        chips.append(("Water contact", "chip-warn"))
+    if states.get("contact_open"):
+        chips.append(("Contact open", "chip-info"))
     if states.get("door_open"):
         chips.append(("Door open", "chip-info"))
     if states.get("door_locked"):

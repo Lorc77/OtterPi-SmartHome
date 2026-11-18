@@ -200,3 +200,41 @@ class TestWeatherHubStaleLogic:
         m = measurements["weatherhub_017a5cd3fc1c.temperature_1"]
         assert m.validity == "invalid"
         assert m.validity_reason == "overflow"
+
+    def test_read_state_id04_water_contact(self) -> None:
+        """ID04: water_contact wird als State zurückgegeben."""
+        reader = WeatherHubReader(stale_after_seconds=1800)
+        packet = self._make_gateway_packet(
+            sensor_id="041234567890",
+            sensor_type=0x04,
+            decoded_values={
+                "temperature": {"value": 21.3, "error": False, "overflow": False},
+                "humidity": {"value": 48.0, "error": False, "overflow": False},
+                "water_contact_raw": 1,
+                "status": {"battery_low": False, "event_transmission": False, "counter": 1},
+            },
+        )
+
+        reader.update_from_packets([packet])
+        states = reader.read_state()
+
+        assert states["weatherhub_041234567890"]["battery_low"] is False
+        assert states["weatherhub_041234567890"]["water_contact"] is True
+
+    def test_read_state_id10_contact_open(self) -> None:
+        """ID10: contact_open wird als State zurückgegeben."""
+        reader = WeatherHubReader(stale_after_seconds=1800)
+        packet = self._make_gateway_packet(
+            sensor_id="101234567890",
+            sensor_type=0x10,
+            decoded_values={
+                "contact": {"open": True, "time_unit": 0, "elapsed_value": 0},
+                "status": {"battery_low": False, "event_transmission": False, "counter": 1},
+            },
+        )
+
+        reader.update_from_packets([packet])
+        states = reader.read_state()
+
+        assert states["weatherhub_101234567890"]["battery_low"] is False
+        assert states["weatherhub_101234567890"]["contact_open"] is True

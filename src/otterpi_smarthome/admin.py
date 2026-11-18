@@ -17,7 +17,7 @@ def render_admin(
     last_received_at: str = "",
     connectivity: Optional[dict] = None,
 ) -> str:
-    from sensor_schemas import SENSOR_SCHEMAS, UNIT_LABELS
+    from sensor_schemas import DASHBOARD_DEVICE_TYPES, SENSOR_SCHEMAS, UNIT_LABELS
 
     if last_batch_at:
         last_update = (
@@ -36,6 +36,7 @@ def render_admin(
     messages_json = json.dumps(config.get("messages", {}), ensure_ascii=False, indent=2)
     sensor_schemas_json = json.dumps(SENSOR_SCHEMAS, ensure_ascii=False)
     unit_labels_json = json.dumps(UNIT_LABELS, ensure_ascii=False)
+    dashboard_device_types_json = json.dumps(DASHBOARD_DEVICE_TYPES, ensure_ascii=False)
 
     return f"""<!DOCTYPE html>
 <html lang="de">
@@ -982,6 +983,7 @@ input[type="number"] {{
 <script>
 const SENSOR_SCHEMAS = {sensor_schemas_json};
 const UNIT_LABELS = {unit_labels_json};
+const DASHBOARD_DEVICE_TYPES = {dashboard_device_types_json};
 
 function showToast(message, type) {{
     const container = document.getElementById('toast-container');
@@ -2124,7 +2126,7 @@ function showAddDeviceForm(roomId) {{
     }}
     const form = document.createElement('div');
     form.className = 'inline-form';
-    const typeOptions = Object.keys(SENSOR_SCHEMAS).map(
+    const typeOptions = DASHBOARD_DEVICE_TYPES.map(
         t => `<option value="${{t}}">${{t}}</option>`
     ).join('');
     form.innerHTML = `

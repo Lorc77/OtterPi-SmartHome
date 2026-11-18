@@ -4,7 +4,7 @@
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
 **Stand:** 2026-11-18
-**Version:** v0.1.3
+**Version:** v0.1.4
 
 ---
 
@@ -152,7 +152,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ### Teststand
 
-**430 Tests, alle grün.** Ruff/Format clean.
+**439 Tests, alle grün.** Ruff/Format clean.
 
 ---
 
@@ -364,6 +364,14 @@ Danach: Phase 8 (Serverseitige Aggregation).
 - `dashboard_data.py`/`dashboard.py`: Limits hochgesetzt (`_recent_batches` 192 → 5000, Detailseiten `hours * 4 + 100` → `hours * 30 + 100`).
 - `notifier.py`: `EmailNotifier.send()` fällt bei leerem `routing.<severity>` auf `recipients` zurück (`self.routing.get(alert.severity) or self.recipients`).
 
+#### Bugfixes (v0.1.4) ✅
+- `weatherhub.py`: `read_state()` liefert jetzt auch `water_contact` (ID04) und `contact_open` (ID10).
+- `dashboard.py`/`dashboard_data.py`: ID04 (Temperatur + Feuchte + Wasserkontakt) und ID10 (Tür-/Fensterkontakt, nur States) unterstützt.
+- `dashboard_data.py`: `_latest_batch_for_device()` berücksichtigt jetzt auch States (für ID10, das keine Measurements hat).
+- `dashboard_data.py`: `_device_chips()` zeigt `water_contact` und `contact_open` als Chips.
+- `sensor_schemas.py`: `DASHBOARD_DEVICE_TYPES` (nur die im Dashboard unterstützten Typen).
+- `admin.py`: „Add Device"-Dropdown zeigt nur noch `DASHBOARD_DEVICE_TYPES` (ID07 ausgeblendet).
+
 ---
 
 ### Offen
@@ -399,6 +407,7 @@ Danach: Phase 8 (Serverseitige Aggregation).
   - [ ] `sensor_schemas.py`: `temperature_3`, `temperature_4` aus `MEASUREMENT_DISPLAY_NAMES` entfernen (ungenutzt).
   - [ ] `config_store.py`: `stale_after_seconds` aus `_ALLOWED_LIMIT_KEYS` entfernen (nicht ausgewertet).
   - [ ] `otterpi.py` / `otterpi_store.py` umbenennen → `smarthome.py` / `smarthome_store.py` (betrifft `install.sh`, `smarthome_observer.py`, Tests).
+- [ ] `weatherhub_id07` im Dashboard unterstützen (4 Measurements, eigene Karten-Logik).
 
 #### Phase 8 — Serverseitige Aggregation für lange Zeiträume
 - [ ] **Problem:** Detailseiten laden aktuell alle Batches in den RAM (bei 30d und 3 Sensoren ~20000 Pakete). Das ist RAM-intensiv und skaliert nicht.

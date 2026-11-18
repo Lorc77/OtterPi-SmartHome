@@ -127,3 +127,12 @@ UNIT_LABELS = {
     "ppm": "ppm",
     "rpm": "rpm",
 }
+
+DASHBOARD_DEVICE_TYPES = [
+    "weatherhub_id01",
+    "weatherhub_id02",
+    "weatherhub_id03",
+    "weatherhub_id04",
+    "weatherhub_id0e",
+    "weatherhub_id10",
+]

@@ -98,9 +98,9 @@ def _make_measurement(value, unit="celsius", validity="valid", measured_at=None)
     }
 
 
-def _make_batch(measurements=None, created_at=None):
+def _make_batch(measurements=None, created_at=None, states=None):
     """Erzeugt einen Batch-Dict für Tests."""
-    return {
+    result = {
         "batch_id": "test-batch",
         "logger_id": "smarthome",
         "sequence": 0,
@@ -114,6 +114,9 @@ def _make_batch(measurements=None, created_at=None):
             "used_bytes": 500,
         },
     }
+    if states is not None:
+        result["states"] = states
+    return result
 
 
 def _store_batches(tmp_path, batches):
@@ -247,6 +250,28 @@ class TestDeviceCurrent:
         assert result["temp"] == 0.0
         assert result["value"] == "–"
 
+    def test_id04_shows_temperature_and_humidity(self):
+        """ID04 zeigt temperature + humidity."""
+        measurements = {
+            "weatherhub_test04.temperature": _make_measurement(21.3),
+            "weatherhub_test04.humidity": _make_measurement(48.0, unit="percent"),
+        }
+        batches = [_make_batch(measurements)]
+        result = _device_current(batches, "weatherhub_test04", "weatherhub_id04")
+
+        assert result["temp"] == 21.3
+        assert result["hum"] == 48.0
+        assert result["value"] == "21.3 °C"
+
+    def test_id10_returns_empty(self):
+        """ID10 hat keine Measurements → leeres Result."""
+        measurements = {}
+        batches = [_make_batch(measurements)]
+        result = _device_current(batches, "weatherhub_test10", "weatherhub_id10")
+
+        assert result["temp"] == 0.0
+        assert result["value"] == "–"
+
 
 # ---------------------------------------------------------------------------
 # _device_status
@@ -291,6 +316,35 @@ class TestDeviceStatus:
     def test_status_placeholder(self, sample_batches):
         """Platzhalter → status-off."""
         assert _device_status(sample_batches, "dryager", "placeholder") == "status-off"
+
+    def test_status_id04(self):
+        """ID04 mit gültigen Werten → status-ok."""
+        measurements = {
+            "weatherhub_test04.temperature": _make_measurement(21.3),
+            "weatherhub_test04.humidity": _make_measurement(48.0, unit="percent"),
+        }
+        batches = [_make_batch(measurements)]
+        assert _device_status(batches, "weatherhub_test04", "weatherhub_id04") == "status-ok"
+
+    def test_status_id10_contact_open(self):
+        """ID10 mit contact_open=True → status-warn."""
+        batches = [
+            _make_batch(
+                {},
+                states={"weatherhub_test10": {"contact_open": True}},
+            )
+        ]
+        assert _device_status(batches, "weatherhub_test10", "weatherhub_id10") == "status-warn"
+
+    def test_status_id10_contact_closed(self):
+        """ID10 mit contact_open=False → status-ok."""
+        batches = [
+            _make_batch(
+                {},
+                states={"weatherhub_test10": {"contact_open": False}},
+            )
+        ]
+        assert _device_status(batches, "weatherhub_test10", "weatherhub_id10") == "status-ok"
 
 
 # ---------------------------------------------------------------------------
@@ -530,4 +584,22 @@ def test_device_measurement_keys_id01():
     temp_key, hum_key = _device_measurement_keys(device)
 
     assert temp_key == "weatherhub_test01.temperature_2"
+    assert hum_key is None
+
+
+def test_device_measurement_keys_id04():
+    """ID04 liefert temperature/humidity (wie ID03/ID0E)."""
+    device = {"key": "weatherhub_test04", "type": "weatherhub_id04"}
+    temp_key, hum_key = _device_measurement_keys(device)
+
+    assert temp_key == "weatherhub_test04.temperature"
+    assert hum_key == "weatherhub_test04.humidity"
+
+
+def test_device_measurement_keys_id10():
+    """ID10 hat keine Measurements."""
+    device = {"key": "weatherhub_test10", "type": "weatherhub_id10"}
+    temp_key, hum_key = _device_measurement_keys(device)
+
+    assert temp_key is None
     assert hum_key is None
