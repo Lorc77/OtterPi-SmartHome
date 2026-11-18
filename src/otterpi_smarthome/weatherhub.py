@@ -11,6 +11,21 @@ from model.measurement import Measurement
 from weatherhub_gateway_decoder import BootPacket, GatewayPacket
 
 
+def _contact_timestamp(contact: dict, gateway_timestamp: int) -> int:
+    """Berechnet den Unix-Timestamp aus time_unit/elapsed_value."""
+    unit = contact.get("time_unit", 3)
+    elapsed = contact.get("elapsed_value", 0)
+    if unit == 0:
+        elapsed_seconds = 86400 * elapsed
+    elif unit == 1:
+        elapsed_seconds = 3600 * elapsed
+    elif unit == 2:
+        elapsed_seconds = 60 * elapsed
+    else:
+        elapsed_seconds = elapsed
+    return gateway_timestamp - elapsed_seconds
+
+
 class WeatherHubReader:
     """Adapter between WeatherHub Gateway packets and Core Measurements."""
 
@@ -263,18 +278,28 @@ class WeatherHubReader:
             sensor_states: dict[str, object] = {}
 
             status = decoded.get("status")
-            if isinstance(status, dict) and "battery_low" in status:
-                sensor_states["battery_low"] = status["battery_low"]
+            if isinstance(status, dict):
+                if "battery_low" in status:
+                    sensor_states["battery_low"] = status["battery_low"]
+                if "event_transmission" in status:
+                    sensor_states["event_transmission"] = status["event_transmission"]
+                if "counter" in status:
+                    sensor_states["counter"] = status["counter"]
 
             # ID04: water_contact
             if packet.sensor_type == 0x04 and "water_contact_raw" in decoded:
                 sensor_states["water_contact"] = bool(decoded["water_contact_raw"])
 
-            # ID10: contact_open
-            if packet.sensor_type == 0x10 and "contact" in decoded:
-                contact = decoded["contact"]
-                if isinstance(contact, dict):
-                    sensor_states["contact_open"] = contact.get("open", False)
+            # ID10: contact_open + Zeitpunkt + previous events
+            if packet.sensor_type == 0x10:
+                for suffix in ("", "_previous", "_previous_1", "_previous_2", "_previous_3"):
+                    contact = decoded.get(f"contact{suffix}")
+                    if isinstance(contact, dict):
+                        sensor_states[f"contact{suffix}_open"] = contact.get("open", False)
+                        if "time_unit" in contact:
+                            sensor_states[f"contact{suffix}_since"] = _contact_timestamp(
+                                contact, packet.gateway_timestamp
+                            )
 
             if sensor_states:
                 states[prefix] = sensor_states

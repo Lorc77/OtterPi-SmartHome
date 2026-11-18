@@ -122,7 +122,7 @@ def decode_current_values(sensor_type: int, payload: bytes) -> dict[str, Any]:
     result: dict[str, Any] = {}
 
     # Status bytes are present in these sensor families
-    if sensor_type in {0x01, 0x02, 0x03, 0x04, 0x07, 0x0E}:
+    if sensor_type in {0x01, 0x02, 0x03, 0x04, 0x07, 0x0E, 0x10}:
         result["status"] = decode_sensor_status(payload[0:2])
 
     if sensor_type == 0x01:
@@ -153,6 +153,10 @@ def decode_current_values(sensor_type: int, payload: bytes) -> dict[str, Any]:
 
     elif sensor_type == 0x10:
         result["contact"] = decode_door_window(payload[2:4])
+        result["contact_previous"] = decode_door_window(payload[4:6])
+        result["contact_previous_1"] = decode_door_window(payload[6:8])
+        result["contact_previous_2"] = decode_door_window(payload[8:10])
+        result["contact_previous_3"] = {"open": bool(payload[10] & 0x80)}
 
     return result
 

@@ -404,9 +404,10 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
         return "status-critical"
 
     if device_type == "weatherhub_id10":
-        if states.get("contact_open"):
-            return "status-warn"
         if states.get("battery_low"):
+            return "status-warn"
+        contact_rule = _load_alarm_limits_cached().get("states", {}).get(f"{key}.contact_open", {})
+        if contact_rule.get("enabled") and states.get("contact_open"):
             return "status-warn"
         return "status-ok"
 
@@ -640,6 +641,29 @@ def _stale_age(measurement: dict) -> Optional[str]:
     return f"{minutes // 60} h"
 
 
+def _contact_events(states: dict) -> list[dict]:
+    """Extrahiert die Kontakt-Ereignisse aus den States."""
+    events = []
+    for suffix, label in (
+        ("", "Current"),
+        ("_previous", "Previous"),
+        ("_previous_1", "Previous 1"),
+        ("_previous_2", "Previous 2"),
+        ("_previous_3", "Previous 3"),
+    ):
+        open_key = f"contact{suffix}_open"
+        since_key = f"contact{suffix}_since"
+        if open_key in states:
+            events.append(
+                {
+                    "label": label,
+                    "open": states[open_key],
+                    "since": states.get(since_key),
+                }
+            )
+    return events
+
+
 def _device_chips(
     batches: list[dict], key: str, device_type: str = "atmoweb"
 ) -> list[tuple[str, str]]:
@@ -724,8 +748,29 @@ def _device_chips(
     # 5) State-Chips
     if states.get("water_contact"):
         chips.append(("Water contact", "chip-warn"))
-    if states.get("contact_open"):
-        chips.append(("Contact open", "chip-info"))
+    if device_type == "weatherhub_id10" and "contact_open" in states:
+        contact_rule = _load_alarm_limits_cached().get("states", {}).get(f"{key}.contact_open", {})
+        if states["contact_open"]:
+            since = states.get("contact_since")
+            if since:
+                minutes = int((datetime.now(timezone.utc).timestamp() - since) / 60)
+                label = f"Contact open (since {minutes} min)"
+            else:
+                label = "Contact open"
+            if contact_rule.get("enabled"):
+                chips.append((f"⚠ {label}", "chip-warn"))
+            else:
+                chips.append((label, "chip-info"))
+        else:
+            chips.append(("Contact closed", "chip-info"))
+
+    if device_type == "weatherhub_id10":
+        if "counter" in states:
+            chips.append((f"Counter: {states['counter']}", "chip-info"))
+        if "event_transmission" in states:
+            label = "Event" if states["event_transmission"] else "Heartbeat"
+            chips.append((label, "chip-info"))
+
     if states.get("door_open"):
         chips.append(("Door open", "chip-info"))
     if states.get("door_locked"):

@@ -4,7 +4,7 @@
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
 **Stand:** 2026-11-18
-**Version:** v0.1.4
+**Version:** v0.1.5
 
 ---
 
@@ -152,7 +152,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ### Teststand
 
-**439 Tests, alle grün.** Ruff/Format clean.
+**442 Tests, alle grün.** Ruff/Format clean.
 
 ---
 
@@ -371,6 +371,13 @@ Danach: Phase 8 (Serverseitige Aggregation).
 - `dashboard_data.py`: `_device_chips()` zeigt `water_contact` und `contact_open` als Chips.
 - `sensor_schemas.py`: `DASHBOARD_DEVICE_TYPES` (nur die im Dashboard unterstützten Typen).
 - `admin.py`: „Add Device"-Dropdown zeigt nur noch `DASHBOARD_DEVICE_TYPES` (ID07 ausgeblendet).
+
+#### Bugfixes (v0.1.5) ✅
+- `weatherhub_gateway_decoder.py`: ID10 `previous`-Ereignisse (previous, previous 1, previous 2, previous 3) werden dekodiert.
+- `weatherhub.py`: `read_state()` liefert für ID10 jetzt `contact_previous*_open`, `contact_previous*_since`, `counter`, `event_transmission`.
+- `dashboard_data.py`: `_contact_events()` extrahiert die Kontakt-Ereignisse aus den States.
+- `dashboard.py`: `_render_contact_events()` rendert die Ereignisse als Tabelle. Raumseite und Detailseite zeigen für ID10 statt Chart eine Ereignis-Tabelle.
+- `dashboard_data.py`: `_device_chips()` zeigt für ID10 `counter` und `event_transmission` (Event/Heartbeat).
 
 ---
 

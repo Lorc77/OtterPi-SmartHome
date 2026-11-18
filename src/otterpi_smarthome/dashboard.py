@@ -22,12 +22,14 @@ from dashboard_constants import (
 from dashboard_data import (
     _calculate_average_series,
     _calculate_stats,
+    _contact_events,
     _count_recent_batches,
     _current_values,
     _device_chips,
     _device_current,
     _device_limits,
     _device_status,
+    _latest_batch_for_device,
     _latest_device,
     _led_value,
     _recent_batches,
@@ -577,6 +579,13 @@ def _render_room_detail(store: BatchStore, room_id: str) -> str:
                 "limit_chips_temp": limit_chips_temp,
                 "limit_chips_hum": limit_chips_hum,
                 "limit_lines": limit_lines,
+                "contact_events": _contact_events(
+                    _latest_batch_for_device(batches, device["key"])
+                    .get("states", {})
+                    .get(device["key"], {})
+                )
+                if device_type == "weatherhub_id10"
+                else [],
             }
         )
 
@@ -2045,6 +2054,14 @@ def _render_device_detail(
             <span class="info-value">{usb_label}</span>
         </div>
 """
+    if device_type == "weatherhub_id10":
+        chart_html = _render_contact_events(
+            _contact_events(
+                _latest_batch_for_device(batches, device_key).get("states", {}).get(device_key, {})
+            )
+        )
+    else:
+        chart_html = '<div class="chart-container"><canvas id="device-chart"></canvas></div>'
 
     return f"""<!DOCTYPE html>
 <html lang="de">
@@ -2416,9 +2433,7 @@ h1 {{ text-align: center; margin-top: 0; }}
     {custom_date_html}
 </div>
 
-<div class="chart-container">
-    <canvas id="device-chart"></canvas>
-</div>
+{chart_html}
 
 <div class="info-grid">
     <div class="info-card">
@@ -2538,6 +2553,28 @@ a {
 # ---------------------------------------------------------------------------
 
 
+def _render_contact_events(events: list[dict]) -> str:
+    """Rendert die Kontakt-Ereignisse als Tabelle."""
+    if not events:
+        return '<div class="device-chart placeholder-chart">No events</div>'
+    rows = ""
+    for e in events:
+        state = "Open" if e["open"] else "Closed"
+        since = "–"
+        if e["since"]:
+            since = (
+                datetime.fromtimestamp(e["since"], tz=timezone.utc)
+                .astimezone(BERLIN)
+                .strftime("%d.%m. %H:%M")
+            )
+        rows += f"<tr><td>{e['label']}</td><td>{state}</td><td>{since}</td></tr>"
+    return (
+        '<table class="events-table">'
+        "<thead><tr><th>Event</th><th>State</th><th>Time</th></tr></thead>"
+        f"<tbody>{rows}</tbody></table>"
+    )
+
+
 def _render_device_card(device: dict, device_views: list[dict]) -> str:
     """Erzeugt die HTML-Karte für ein Gerät."""
     if device["type"] == "placeholder":
@@ -2598,18 +2635,12 @@ def _render_device_card(device: dict, device_views: list[dict]) -> str:
 """
 
     # AtmoWEB und weatherhub_id0e (Temp + Feuchte) - Status-Text statt Temperatur
-    return f"""
-    <a class="device-card{full_width_class}" href="{device_link}">
-        <div class="device-header">
-            <div>
-                <h2>{device["name"]}</h2>
-                <div class="chip-row">{device["chips_html"]}</div>
-            </div>
-            <div class="status-right">
-                {device["led_html"]}
-                <span class="status-light {device["status"]}" aria-label="Device Status"></span>
-            </div>
-        </div>
+    if device["type"] == "weatherhub_id10":
+        chart_html = _render_contact_events(device["contact_events"])
+        metrics_html = ""
+    else:
+        chart_html = f'<div class="device-chart"><canvas id="{device["chart_id"]}"></canvas></div>'
+        metrics_html = f"""
         <div class="metric-grid">
             <div class="metric">
                 <div class="metric-left">
@@ -2626,8 +2657,21 @@ def _render_device_card(device: dict, device_views: list[dict]) -> str:
                 {device["limit_chips_hum"]}
             </div>
         </div>
-        <div class="device-chart">
-            <canvas id="{device["chart_id"]}"></canvas>
+        """
+
+    return f"""
+    <a class="device-card{full_width_class}" href="{device_link}">
+        <div class="device-header">
+            <div>
+                <h2>{device["name"]}</h2>
+                <div class="chip-row">{device["chips_html"]}</div>
+            </div>
+            <div class="status-right">
+                {device["led_html"]}
+                <span class="status-light {device["status"]}" aria-label="Device Status"></span>
+            </div>
         </div>
+        {metrics_html}
+        {chart_html}
     </a>
 """

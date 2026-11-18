@@ -238,3 +238,31 @@ class TestWeatherHubStaleLogic:
 
         assert states["weatherhub_101234567890"]["battery_low"] is False
         assert states["weatherhub_101234567890"]["contact_open"] is True
+
+    def test_read_state_id10_previous_events(self) -> None:
+        """ID10: previous-Ereignisse werden als States zurückgegeben."""
+        reader = WeatherHubReader(stale_after_seconds=1800)
+        packet = self._make_gateway_packet(
+            sensor_id="101234567890",
+            sensor_type=0x10,
+            decoded_values={
+                "contact": {"open": True, "time_unit": 2, "elapsed_value": 5},
+                "contact_previous": {"open": False, "time_unit": 2, "elapsed_value": 10},
+                "contact_previous_1": {"open": True, "time_unit": 2, "elapsed_value": 15},
+                "contact_previous_2": {"open": False, "time_unit": 2, "elapsed_value": 20},
+                "contact_previous_3": {"open": True},
+                "status": {"battery_low": False, "event_transmission": True, "counter": 42},
+            },
+        )
+
+        reader.update_from_packets([packet])
+        states = reader.read_state()
+
+        s = states["weatherhub_101234567890"]
+        assert s["contact_open"] is True
+        assert s["contact_previous_open"] is False
+        assert s["contact_previous_1_open"] is True
+        assert s["contact_previous_2_open"] is False
+        assert s["contact_previous_3_open"] is True
+        assert s["counter"] == 42
+        assert s["event_transmission"] is True

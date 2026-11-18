@@ -687,6 +687,31 @@ Neue Konstante `DASHBOARD_DEVICE_TYPES` in `sensor_schemas.py` mit den im Dashbo
 
 ---
 
+## DEC-024 — ID10 previous events, counter, heartbeat
+
+**Status:** Accepted
+**Datum:** 2026-11-18
+
+### Kontext
+
+ID10 liefert mehr als nur den aktuellen Kontakt-Zustand: die letzten 4 Zustandswechsel (`previous`, `previous 1`, `previous 2`, `previous 3`), `counter` und `event_transmission` (Heartbeat/Event).
+
+### Entscheidung
+
+- Decoder liest alle `previous`-Ereignisse.
+- Reader gibt sie als States weiter (`contact_previous*_open`, `contact_previous*_since`).
+- `counter` und `event_transmission` werden als States weitergegeben.
+- Dashboard zeigt die Ereignisse als Tabelle (statt Chart) auf Raum- und Detailseite.
+- `counter` und `event_transmission` werden als Chips angezeigt.
+
+### Konsequenz
+
+- ID10 zeigt jetzt: aktuellen Zustand, letzte 4 Ereignisse, Counter, Event/Heartbeat.
+- Die Bedeutung von `event_transmission` (Event vs. Heartbeat) muss noch getestet werden.
+- `previous 3` hat kein `time` (nur `sensor`), wird aber trotzdem angezeigt.
+
+---
+
 ## Offene Entscheidungen
 
 Folgende Punkte sind derzeit bewusst noch offen:

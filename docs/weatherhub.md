@@ -112,13 +112,11 @@ Measurement-Pipeline übernommen.
 ### ID04 — Temperatur + Feuchte + Wasserkontakt
 
 - **Measurements:** `temperature` (celsius), `humidity` (percent)
-- **States:** `battery_low` (bool), `water_contact` (bool, vorbereitet)
+- **States:** `battery_low` (bool), `water_contact` (bool)
 - **Payload:** Status (2 Byte), Temp (2 Byte), Humidity (2 Byte),
   Water-Contact (1 Byte)
 
-**Hinweis:** `water_contact` wird im Reader noch nicht als State
-verarbeitet. Der Rohwert (`water_contact_raw`) wird dekodiert, aber
-ignoriert.
+**Hinweis:** `water_contact` wird als State verarbeitet (seit v0.1.4).
 
 ### ID07 — Innen-/Außensensor
 
@@ -137,11 +135,16 @@ ignoriert.
 ### ID10 — Tür-/Fensterkontakt
 
 - **Measurements:** keine
-- **States:** `battery_low` (bool), `contact_open` (bool, vorbereitet)
-- **Payload:** Status (2 Byte), Contact (2 Byte)
+- **States:** `battery_low` (bool), `contact_open` (bool),
+  `contact_previous*_open` (bool), `contact_*_since` (Unix-Timestamp),
+  `counter` (int), `event_transmission` (bool)
+- **Payload:** Status (2 Byte), Contact current (2 Byte),
+  Contact previous (2 Byte), Contact previous 1 (2 Byte),
+  Contact previous 2 (2 Byte), Contact previous 3 (1 Byte)
 
-**Hinweis:** `contact_open` wird im Reader noch nicht als State
-verarbeitet. Der Rohwert (`contact`) wird dekodiert, aber ignoriert.
+**Hinweis:** ID10 liefert die letzten 5 Zustandswechsel (current +
+previous 1–3). `time_unit`/`elapsed_value` werden in einen Unix-Timestamp
+umgerechnet (`_contact_timestamp`). `previous 3` hat kein `time`.
 
 ---
 
@@ -160,7 +163,8 @@ die binären Payloads.
 - `decode_humidity_decimal(data)` — dekodiert einen dezimalen
   Feuchtewert (ID0E).
 - `decode_sensor_status(data)` — dekodiert den Status (Battery, Counter).
-- `decode_door_window(data)` — dekodiert den Tür-/Fensterkontakt (ID10).
+- `decode_door_window(data)` — dekodiert den Tür-/Fensterkontakt (ID10):
+  `open`, `time_unit`, `elapsed_value`.
 
 ### Fehlerbehandlung
 
@@ -218,7 +222,11 @@ Gateway-Paketen und Core Measurements.
   bekannten Sensoren.
 - `measurements_from_packet(packet)` — liefert die Measurements eines
   einzelnen Pakets (für die `SmartHomeBridge`).
-- `read_state()` — liefert die States (Battery low).
+- `read_state()` — liefert die States:
+  - `battery_low` (alle Sensoren)
+  - `water_contact` (ID04)
+  - `contact_open`, `contact_previous*_open`, `contact_*_since` (ID10)
+  - `counter`, `event_transmission` (alle Sensoren mit Status-Bytes)
 - `read_device_info()` — liefert Geräte-Infos (Sensor-ID, Typ,
   Gateway-IP, Gateway-Timestamp).
 
@@ -279,21 +287,21 @@ blockiert den lokalen Empfang nicht.
 ## 10. Tests
 
 - `tests/test_weatherhub_decoder.py` — Decoder-Tests (mit Fixtures).
-- `tests/test_weatherhub_stale.py` — Stale-Logik.
-- `tests/test_weatherhub.py` — `measurements_from_packet` (ID01, ID03,
-  ID0E, ID10).
+- `tests/test_weatherhub_stale.py` — Stale-Logik, `read_state` (ID04, ID10).
+- `tests/test_weatherhub.py` — `measurements_from_packet` (ID01, ID02,
+  ID03, ID04, ID0E, ID10).
 - `tests/test_smarthome_bridge.py` — Packet → Batch → Store.
 
 ---
 
 ## 11. Bekannte Einschränkungen
 
-- **ID04 `water_contact`:** Wird dekodiert, aber nicht als State
-  verarbeitet. Vorbereitet für spätere Erweiterung.
-- **ID10 `contact_open`:** Wird dekodiert, aber nicht als State
-  verarbeitet. Vorbereitet für spätere Erweiterung.
-- **ID02, ID07:** Werden dekodiert, aber im SmartHome noch nicht
-  produktiv genutzt.
+- **ID07:** Wird dekodiert, aber im Dashboard noch nicht unterstützt
+  (4 Measurements, eigene Karten-Logik nötig).
+- **ID10 `event_transmission`:** Die Bedeutung (Event vs. Heartbeat) ist
+  noch nicht verifiziert.
+- **ID10 `previous 3`:** Hat kein `time` (nur `sensor`), wird aber
+  angezeigt.
 - **Gateway-Deduplizierung:** Wenn mehrere Gateways dieselben Sensordaten
   empfangen, werden die Daten doppelt verarbeitet. Eine Deduplizierung
   ist nicht implementiert.

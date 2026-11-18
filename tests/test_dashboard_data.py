@@ -544,3 +544,23 @@ def test_system_metrics_returns_dict():
     assert set(result) == {"cpu_temp", "memory_used"}
     assert result["cpu_temp"] is None or isinstance(result["cpu_temp"], float)
     assert result["memory_used"] is None or isinstance(result["memory_used"], float)
+
+
+def test_contact_events():
+    from dashboard_data import _contact_events
+
+    states = {
+        "contact_open": True,
+        "contact_since": 1000,
+        "contact_previous_open": False,
+        "contact_previous_since": 900,
+    }
+    events = _contact_events(states)
+
+    assert len(events) == 2
+    assert events[0]["label"] == "Current"
+    assert events[0]["open"] is True
+    assert events[0]["since"] == 1000
+    assert events[1]["label"] == "Previous"
+    assert events[1]["open"] is False
+    assert events[1]["since"] == 900

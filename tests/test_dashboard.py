@@ -326,8 +326,23 @@ class TestDeviceStatus:
         batches = [_make_batch(measurements)]
         assert _device_status(batches, "weatherhub_test04", "weatherhub_id04") == "status-ok"
 
-    def test_status_id10_contact_open(self):
-        """ID10 mit contact_open=True → status-warn."""
+    def test_status_id10_contact_open_with_alert_enabled(self, tmp_path, monkeypatch):
+        """ID10 mit contact_open=True und Alert aktiviert → status-warn."""
+        monkeypatch.setenv("SMARTHOME_CONFIG_DIR", str(tmp_path))
+        (tmp_path / "alarm_limits.json").write_text(
+            json.dumps(
+                {
+                    "sensors": {},
+                    "states": {"weatherhub_test10.contact_open": {"enabled": True}},
+                }
+            ),
+            encoding="utf-8",
+        )
+        from dashboard_data import _alarm_limits_cache
+
+        _alarm_limits_cache["mtime"] = None
+        _alarm_limits_cache["data"] = None
+
         batches = [
             _make_batch(
                 {},
@@ -335,6 +350,16 @@ class TestDeviceStatus:
             )
         ]
         assert _device_status(batches, "weatherhub_test10", "weatherhub_id10") == "status-warn"
+
+    def test_status_id10_contact_open_without_alert(self):
+        """ID10 mit contact_open=True und Alert nicht aktiviert → status-ok."""
+        batches = [
+            _make_batch(
+                {},
+                states={"weatherhub_test10": {"contact_open": True}},
+            )
+        ]
+        assert _device_status(batches, "weatherhub_test10", "weatherhub_id10") == "status-ok"
 
     def test_status_id10_contact_closed(self):
         """ID10 mit contact_open=False → status-ok."""
