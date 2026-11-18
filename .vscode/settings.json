@@ -1,7 +1,9 @@
 {
     "python.defaultInterpreterPath": "${workspaceFolder}\\.venv\\Scripts\\python.exe",
     "python.analysis.extraPaths": [
-        "${workspaceFolder}\\src\\loggerpi_otterpi"
+        "${workspaceFolder}/src",
+        "${workspaceFolder}/src/otterpi_smarthome",
+        "${workspaceFolder}/src/otterpi_smarthome/model"
     ],
     "python.analysis.typeCheckingMode": "off"
 }

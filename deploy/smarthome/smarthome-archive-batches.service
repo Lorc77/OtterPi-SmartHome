@@ -1,0 +1,12 @@
+[Unit]
+Description=Archive old batches from OtterPi-SmartHome database
+After=network.target
+
+[Service]
+Type=oneshot
+User=makki
+Group=makki
+Environment=PYTHONPATH=/opt/otterpi-smarthome:/opt/otterpi-smarthome/model
+ExecStart=/usr/bin/python3 /opt/otterpi-smarthome/archive_batches.py
+StandardOutput=journal
+StandardError=journal

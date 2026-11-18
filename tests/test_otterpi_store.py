@@ -1,16 +1,23 @@
 import json
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timezone
+from uuid import uuid4
 
-from batch_factory import SequenceStore, create_batch
+from model.batch import Batch
 from otterpi_store import BatchStore
+from sequence_store import SequenceStore
 
 
 def test_batch_store_persists_batch(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     assert store.store(batch) == "stored"
     assert store.get(batch.batch_id).to_dict() == batch.to_dict()
@@ -20,7 +27,12 @@ def test_batch_store_accepts_identical_duplicate(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     assert store.store(batch) == "stored"
     assert store.store(batch) == "duplicate"
@@ -30,7 +42,12 @@ def test_batch_store_rejects_same_batch_id_with_different_content(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     assert store.store(batch) == "stored"
 
@@ -53,11 +70,21 @@ def test_batch_store_rejects_same_sequence_with_different_batch_id(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    first = create_batch("logger-001", sequence_store)
+    first = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     assert store.store(first) == "stored"
 
-    conflicting_batch = create_batch("logger-001", sequence_store)
+    conflicting_batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
     conflicting_batch = conflicting_batch.__class__(
         batch_id=conflicting_batch.batch_id,
         logger_id=first.logger_id,
@@ -88,8 +115,18 @@ def test_batch_store_latest_returns_newest(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    first = create_batch("logger-001", sequence_store)
-    second = create_batch("logger-001", sequence_store)
+    first = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    second = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     store.store(first)
     store.store(second)
@@ -106,8 +143,18 @@ def test_batch_store_recent_returns_batches_in_window(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    first = create_batch("logger-001", sequence_store)
-    second = create_batch("logger-001", sequence_store)
+    first = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
+    second = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     store.store(first)
     store.store(second)
@@ -127,7 +174,12 @@ def test_batch_store_sets_received_at(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
 
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
     store.store(batch)
 
     received_at = store.latest_received_at()
@@ -143,7 +195,12 @@ def test_batch_store_latest_received_at_empty(tmp_path):
 def test_batch_store_latest_received_at_fallback_to_created_at(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     # Simuliere eine alte Zeile ohne received_at
     with sqlite3.connect(store.path) as conn:
@@ -163,7 +220,12 @@ def test_batch_store_latest_received_at_fallback_to_created_at(tmp_path):
 def test_store_sets_created_at(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     store.store(batch)
 

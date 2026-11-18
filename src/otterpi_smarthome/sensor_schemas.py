@@ -18,36 +18,6 @@ MeasurementSpec = Tuple[str, str]  # (name, unit)
 StateSpec = Tuple[str, str]  # (name, type)
 
 SENSOR_SCHEMAS: Dict[str, Dict[str, List]] = {
-    "atmoweb": {
-        "measurements": [
-            ("temperature_1", "celsius"),
-            ("temperature_2", "celsius"),
-            ("temperature_3", "celsius"),
-            ("temperature_4", "celsius"),
-            ("humidity", "percent"),
-            ("vacuum", "mbar"),
-            ("co2", "ppm"),
-            ("o2", "percent"),
-            ("fan_speed", "rpm"),
-        ],
-        "states": [
-            ("door_open", "bool"),
-        ],
-    },
-    "freezer": {
-        "measurements": [
-            ("temperature", "celsius"),
-        ],
-        "states": [
-            ("alarms", "list"),
-        ],
-    },
-    "memmert": {
-        "measurements": [
-            ("temperature", "celsius"),
-        ],
-        "states": [],
-    },
     "weatherhub_id01": {
         "measurements": [
             ("temperature_1", "celsius"),
@@ -81,7 +51,7 @@ SENSOR_SCHEMAS: Dict[str, Dict[str, List]] = {
         ],
         "states": [
             ("battery_low", "bool"),
-            ("water_contact", "bool"),  # vorbereitet, noch nicht im Reader
+            ("water_contact", "bool"),
         ],
     },
     "weatherhub_id07": {
@@ -108,7 +78,7 @@ SENSOR_SCHEMAS: Dict[str, Dict[str, List]] = {
         "measurements": [],
         "states": [
             ("battery_low", "bool"),
-            ("contact_open", "bool"),  # vorbereitet, noch nicht im Reader
+            ("contact_open", "bool"),
         ],
     },
 }

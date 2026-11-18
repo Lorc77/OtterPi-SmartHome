@@ -13,22 +13,22 @@ class TestOfflineStatus:
     def test_no_batch(self):
         status_class, text = offline_status(None)
         assert status_class == "status-off"
-        assert text == "No batch received yet"
+        assert text == "No packet received yet"
 
     def test_fresh_batch(self):
         status_class, text = offline_status(_iso(60))
         assert status_class == "status-ok"
-        assert "Last batch" in text
+        assert "Last packet" in text
 
     def test_warning_threshold(self):
         status_class, text = offline_status(_iso(1801))
         assert status_class == "status-warn"
-        assert "Last batch" in text
+        assert "Last packet" in text
 
     def test_critical_threshold(self):
         status_class, text = offline_status(_iso(3601))
         assert status_class == "status-critical"
-        assert "LoggerPi offline" in text
+        assert "Gateway offline" in text
 
     def test_custom_thresholds(self):
         status_class, _ = offline_status(_iso(120), warning_seconds=60, critical_seconds=300)

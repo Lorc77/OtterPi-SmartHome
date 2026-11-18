@@ -17,10 +17,10 @@ def load_offline_thresholds(system_config: Optional[dict] = None) -> tuple[int, 
             data = load_alarm_limits()
         except Exception:
             return (1800, 3600)
-        system_config = data.get("system", {})
+        system_config = data.get("system", {}) or {}
     return (
-        system_config.get("loggerpi_offline_warning_seconds", 1800),
-        system_config.get("loggerpi_offline_critical_seconds", 3600),
+        system_config.get("gateway_offline_warning_seconds", 1800),
+        system_config.get("gateway_offline_critical_seconds", 3600),
     )
 
 
@@ -31,13 +31,13 @@ def offline_status(
 ) -> tuple[str, str]:
     """Liefert (CSS-Klasse, Text) für die Statusanzeige im Header.
 
-    - ``status-off``: noch kein Batch empfangen oder ungültiger Zeitstempel
-    - ``status-ok``: letzter Batch innerhalb der Warnschwelle
-    - ``status-warn``: letzter Batch zwischen Warn- und Kritisch-Schwelle
-    - ``status-critical``: letzter Batch älter als die Kritisch-Schwelle
+    - ``status-off``: noch kein Paket empfangen oder ungültiger Zeitstempel
+    - ``status-ok``: letztes Paket innerhalb der Warnschwelle
+    - ``status-warn``: letztes Paket zwischen Warn- und Kritisch-Schwelle
+    - ``status-critical``: letztes Paket älter als die Kritisch-Schwelle
     """
     if not last_received_at:
-        return ("status-off", "No batch received yet")
+        return ("status-off", "No packet received yet")
 
     try:
         last_dt = datetime.fromisoformat(last_received_at)
@@ -48,7 +48,7 @@ def offline_status(
     minutes = int(age_seconds // 60)
 
     if age_seconds >= critical_seconds:
-        return ("status-critical", f"LoggerPi offline for {minutes} min")
+        return ("status-critical", f"Gateway offline for {minutes} min")
     if age_seconds >= warning_seconds:
-        return ("status-warn", f"Last batch {minutes} min ago")
-    return ("status-ok", f"Last batch {minutes} min ago")
+        return ("status-warn", f"Last packet {minutes} min ago")
+    return ("status-ok", f"Last packet {minutes} min ago")

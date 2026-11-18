@@ -35,4 +35,3 @@ class SequenceStore:
             sequence = int(time.time() * 1000)
 
         return sequence
-    

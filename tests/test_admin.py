@@ -1,16 +1,19 @@
 """Tests für die Admin-Routen."""
 
 import json
+from datetime import datetime, timezone
 from threading import Thread
 from urllib.error import HTTPError
 from urllib.request import Request, urlopen
+from uuid import uuid4
 
 import pytest
-from batch_factory import SequenceStore, create_batch
 from config_store import load_alarm_limits, load_mail, load_notifications, load_rooms
+from model.batch import Batch
 from model.measurement import Measurement
 from otterpi import create_server
 from otterpi_store import BatchStore
+from sequence_store import SequenceStore
 
 TEST_TOKEN = "lp-test-token-1234567890abcdef"
 
@@ -319,7 +322,7 @@ def test_admin_page_shows_status_lamp(tmp_path):
         with urlopen(f"http://127.0.0.1:{server.server_port}/admin") as resp:
             html = resp.read().decode("utf-8")
         assert 'class="lamp status-off"' in html
-        assert "No batch received yet" in html
+        assert "No packet received yet" in html
     finally:
         server.shutdown()
         thread.join()
@@ -356,7 +359,7 @@ def test_render_admin_shows_offline_status():
         "notifications": {"channels": []},
     }
     html = render_admin(config, last_batch_at="", last_received_at=old)
-    assert "LoggerPi offline" in html
+    assert "Gateway offline" in html
     assert "status-critical" in html
 
 
@@ -373,7 +376,7 @@ def test_render_admin_shows_warning_status():
         "notifications": {"channels": []},
     }
     html = render_admin(config, last_batch_at="", last_received_at=old)
-    assert "Last batch" in html
+    assert "Last packet" in html
     assert "status-warn" in html
 
 
@@ -459,7 +462,7 @@ def test_get_messages_returns_defaults(tmp_path):
             assert resp.status == 200
             data = json.loads(resp.read().decode("utf-8"))
         assert data["critical_max"] == "too high"
-        assert data["loggerpi_offline"] == "offline"
+        assert data["gateway_offline"] == "offline"
     finally:
         server.shutdown()
         thread.join()
@@ -484,7 +487,7 @@ def test_put_messages_saves(tmp_path):
             "door_open": "open",
             "contact_open": "open",
             "alarm": "alarm",
-            "loggerpi_offline": "offline",
+            "gateway_offline": "offline",
         }
         req = _put(
             f"http://127.0.0.1:{server.server_port}/api/admin/messages",
@@ -580,9 +583,11 @@ def test_get_latest_measurements(tmp_path):
         validity="valid",
         source="test",
     )
-    batch = create_batch(
-        "logger-001",
-        seq,
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=seq.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
         measurements={"atmoweb_101.temperature_1": measurement},
         states={"atmoweb_101": {"door_open": True}},
     )
@@ -892,20 +897,3 @@ def test_admin_page_contains_archive_tab(tmp_path):
         server.shutdown()
         thread.join()
         server.server_close()
-
-
-def test_render_admin_shows_connectivity():
-    from admin import render_admin
-
-    config = {
-        "rooms": {"rooms": {}},
-        "alarm_limits": {"sensors": {}, "states": {}, "system": {}},
-        "mail": {},
-        "notifications": {"channels": []},
-    }
-    html = render_admin(
-        config,
-        connectivity={"queue": {"depth": 3, "dead_letter_count": 1}},
-    )
-    assert "Queue: 3" in html
-    assert "Dead-letter: 1" in html

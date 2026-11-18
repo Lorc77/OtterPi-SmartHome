@@ -1,9 +1,12 @@
 import json
+from datetime import datetime, timezone
 from threading import Thread
+from uuid import uuid4
 
-from batch_factory import SequenceStore, create_batch
+from model.batch import Batch
 from otterpi import create_server
 from otterpi_store import BatchStore
+from sequence_store import SequenceStore
 
 TEST_TOKEN = "lp-test-token-1234567890abcdef"
 
@@ -29,7 +32,12 @@ def _request(url, body, content_type="application/json"):
 def test_otterpi_accepts_new_batch(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     server = _server(store)
     thread = Thread(target=server.serve_forever)
@@ -55,7 +63,9 @@ def test_otterpi_accepts_new_batch(tmp_path):
             "sequence": batch.sequence,
         }
 
-        assert store.get(batch.batch_id).to_dict() == batch.to_dict()
+        stored = store.get(batch.batch_id)
+        assert stored is not None
+        assert stored.to_dict() == batch.to_dict()
     finally:
         server.shutdown()
         thread.join()
@@ -65,7 +75,12 @@ def test_otterpi_accepts_new_batch(tmp_path):
 def test_otterpi_accepts_identical_duplicate(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
     sequence_store = SequenceStore(tmp_path / "sequence")
-    batch = create_batch("logger-001", sequence_store)
+    batch = Batch(
+        batch_id=str(uuid4()),
+        logger_id="logger-001",
+        sequence=sequence_store.next(),
+        created_at=datetime.now(timezone.utc).isoformat(),
+    )
 
     server = _server(store)
     thread = Thread(target=server.serve_forever)

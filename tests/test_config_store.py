@@ -207,9 +207,9 @@ class TestAlarmLimitsSystem:
     def test_roundtrip_with_system(self):
         data = {
             "system": {
-                "loggerpi_offline_warning_seconds": 1800,
-                "loggerpi_offline_critical_seconds": 3600,
-                "loggerpi_offline_warning_alert_enabled": False,
+                "gateway_offline_warning_seconds": 1800,
+                "gateway_offline_critical_seconds": 3600,
+                "gateway_offline_warning_alert_enabled": False,
             },
             "sensors": {},
         }
@@ -260,7 +260,7 @@ class TestMessages:
     def test_load_defaults_when_missing(self):
         messages = load_messages()
         assert messages["critical_max"] == "too high"
-        assert messages["loggerpi_offline"] == "offline"
+        assert messages["gateway_offline"] == "offline"
 
     def test_roundtrip(self):
         data = dict(_DEFAULT_MESSAGES)
@@ -404,61 +404,3 @@ class TestDeviceSection:
         data = {"sensors": {}}
         save_alarm_limits(data)
         assert load_alarm_limits() == data
-
-
-class TestAlarmLimitsQueueDepth:
-    def test_queue_depth_roundtrip(self):
-        data = {
-            "system": {
-                "queue_depth_warning": 10,
-                "queue_depth_critical": 50,
-            },
-            "sensors": {},
-        }
-        save_alarm_limits(data)
-        assert load_alarm_limits() == data
-
-    def test_queue_depth_invalid(self):
-        data = {"system": {"queue_depth_warning": 0}, "sensors": {}}
-        with pytest.raises(ConfigValidationError):
-            save_alarm_limits(data)
-
-    def test_queue_depth_warning_must_be_less_than_critical(self):
-        data = {
-            "system": {
-                "queue_depth_warning": 50,
-                "queue_depth_critical": 10,
-            },
-            "sensors": {},
-        }
-        with pytest.raises(ConfigValidationError):
-            save_alarm_limits(data)
-
-
-class TestAlarmLimitsDeadLetter:
-    def test_dead_letter_roundtrip(self):
-        data = {
-            "system": {
-                "dead_letter_warning": 1,
-                "dead_letter_critical": 10,
-            },
-            "sensors": {},
-        }
-        save_alarm_limits(data)
-        assert load_alarm_limits() == data
-
-    def test_dead_letter_invalid(self):
-        data = {"system": {"dead_letter_warning": -1}, "sensors": {}}
-        with pytest.raises(ConfigValidationError):
-            save_alarm_limits(data)
-
-    def test_dead_letter_warning_must_be_less_than_critical(self):
-        data = {
-            "system": {
-                "dead_letter_warning": 10,
-                "dead_letter_critical": 1,
-            },
-            "sensors": {},
-        }
-        with pytest.raises(ConfigValidationError):
-            save_alarm_limits(data)

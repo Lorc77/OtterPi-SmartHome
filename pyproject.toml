@@ -13,6 +13,7 @@ dependencies = ["pyserial>=3.5",]
 dev = [
     "pytest>=8.4,<9",
     "ruff>=0.16.5,<0.17",
+    "tzdata>=2024.1",
 ]
 
 [tool.pytest.ini_options]
@@ -42,7 +43,7 @@ select = [
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"src/loggerpi_otterpi/*.py" = ["UP006", "UP035"]
+"src/otterpi_smarthome/*.py" = ["UP006", "UP035"]
 "tests/*.py" = ["UP006", "UP035"]
 
 [tool.ruff.format]

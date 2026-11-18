@@ -232,7 +232,7 @@ class WeatherHubReader:
             elif value_dict.get("overflow"):
                 validity = "invalid"
                 validity_reason = "overflow"
-            elif self._is_stale(sensor_id):
+            elif sensor_id in self._reception_times and self._is_stale(sensor_id):
                 validity = "stale"
 
             measurement = Measurement(

@@ -1,6 +1,5 @@
 """Tests für die zentrale Sensor-Schema-Definition."""
 
-from memmert import ALL_MEASUREMENT_COMMANDS
 from sensor_schemas import (
     SENSOR_SCHEMAS,
     get_measurement_names,
@@ -42,7 +41,7 @@ class TestGetSchema:
     """Prüft die get_schema-Funktion."""
 
     def test_known_type(self):
-        schema = get_schema("atmoweb")
+        schema = get_schema("weatherhub_id01")
         assert "temperature_1" in [name for name, _ in schema["measurements"]]
 
     def test_unknown_type_returns_empty(self):
@@ -53,14 +52,13 @@ class TestGetSchema:
 class TestGetMeasurementNames:
     """Prüft die get_measurement_names-Funktion."""
 
-    def test_atmoweb(self):
-        names = get_measurement_names("atmoweb")
+    def test_id01(self):
+        names = get_measurement_names("weatherhub_id01")
         assert "temperature_1" in names
-        assert "humidity" in names
-        assert "vacuum" in names
+        assert "temperature_2" in names
 
-    def test_freezer(self):
-        assert get_measurement_names("freezer") == ["temperature"]
+    def test_id03(self):
+        assert get_measurement_names("weatherhub_id03") == ["temperature", "humidity"]
 
     def test_unknown(self):
         assert get_measurement_names("unknown") == []
@@ -69,13 +67,12 @@ class TestGetMeasurementNames:
 class TestGetStateNames:
     """Prüft die get_state_names-Funktion."""
 
-    def test_atmoweb(self):
-        names = get_state_names("atmoweb")
-        assert "door_open" in names
-        assert "lights.led" not in names
+    def test_id01(self):
+        names = get_state_names("weatherhub_id01")
+        assert "battery_low" in names
 
-    def test_freezer(self):
-        assert get_state_names("freezer") == ["alarms"]
+    def test_id10(self):
+        assert get_state_names("weatherhub_id10") == ["battery_low", "contact_open"]
 
     def test_unknown(self):
         assert get_state_names("unknown") == []
@@ -83,17 +80,6 @@ class TestGetStateNames:
 
 class TestConsistencyWithReaderCode:
     """Prüft, dass die Schema-Definition mit dem Reader-Code übereinstimmt."""
-
-    def test_memmert_measurements_match_reader(self):
-        """Die MEMMERT-Schema-Messwerte müssen mit ALL_MEASUREMENT_COMMANDS übereinstimmen."""
-        reader_names = {name for _, name, _ in ALL_MEASUREMENT_COMMANDS}
-        schema_names = set(get_measurement_names("memmert"))
-        # Schema enthält nur die für IPP300 relevanten Messwerte,
-        # ALL_MEASUREMENT_COMMANDS enthält alle möglichen.
-        # Deshalb prüfen wir nur, dass die Schema-Namen eine Teilmenge sind.
-        assert schema_names <= reader_names, (
-            f"Schema-Namen {schema_names - reader_names} sind nicht im Reader-Code"
-        )
 
     def test_weatherhub_types_are_known(self):
         """Alle WeatherHub-Sensor-Typen aus dem Decoder müssen im Schema sein."""

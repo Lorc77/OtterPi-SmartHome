@@ -78,11 +78,35 @@ install -o root -g root -m 0644 \
     "$SERVICE_FILE" \
     "/etc/systemd/system/$SERVICE_NAME"
 
+# Archivierungs-Service installieren
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/smarthome/smarthome-archive-batches.service" \
+    "/etc/systemd/system/smarthome-archive-batches.service"
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/smarthome/smarthome-archive-batches.timer" \
+    "/etc/systemd/system/smarthome-archive-batches.timer"
+
+# Backup-Service installieren
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/smarthome/smarthome-backup.service" \
+    "/etc/systemd/system/smarthome-backup.service"
+
+install -o root -g root -m 0644 \
+    "$REPO_DIR/deploy/smarthome/smarthome-backup.timer" \
+    "/etc/systemd/system/smarthome-backup.timer"
+
 install -d -o makki -g makki -m 0750 \
     /var/lib/otterpi-smarthome
 
+# Archiv-Verzeichnis anlegen
+install -d -o makki -g makki -m 0750 \
+    /var/lib/otterpi-smarthome/archive
+
 systemctl daemon-reload
 systemctl enable "$SERVICE_NAME"
+systemctl enable --now smarthome-archive-batches.timer
+systemctl enable --now smarthome-backup.timer
 
 install -o root -g root -m 0755 \
     "$REPO_DIR/deploy/update.sh" \
@@ -99,6 +123,12 @@ echo "  sudo systemctl restart $SERVICE_NAME"
 echo
 echo "Status:"
 echo "  systemctl status $SERVICE_NAME --no-pager"
+echo
+echo "Archive timer:"
+echo "  systemctl status smarthome-archive-batches.timer --no-pager"
+echo
+echo "Backup timer:"
+echo "  systemctl status smarthome-backup.timer --no-pager"
 echo
 echo "Current version:"
 echo "  cat $INSTALL_DIR/VERSION"

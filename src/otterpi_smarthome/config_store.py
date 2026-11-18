@@ -61,9 +61,7 @@ _DEFAULT_MESSAGES = {
     "door_open": "open",
     "contact_open": "open",
     "alarm": "alarm",
-    "loggerpi_offline": "offline",
-    "queue_depth": "too high",
-    "dead_letter": "too high",
+    "gateway_offline": "offline",
 }
 
 _ALLOWED_MESSAGE_KEYS = set(_DEFAULT_MESSAGES)
@@ -157,13 +155,9 @@ def _validate_alarm_limits(data: Any) -> None:
         if not isinstance(system, dict):
             raise ConfigValidationError("alarm_limits.json 'system' must be an object.")
         allowed = {
-            "loggerpi_offline_warning_seconds",
-            "loggerpi_offline_critical_seconds",
-            "loggerpi_offline_warning_alert_enabled",
-            "queue_depth_warning",
-            "queue_depth_critical",
-            "dead_letter_warning",
-            "dead_letter_critical",
+            "gateway_offline_warning_seconds",
+            "gateway_offline_critical_seconds",
+            "gateway_offline_warning_alert_enabled",
         }
         unknown = set(system) - allowed
         if unknown:
@@ -171,12 +165,8 @@ def _validate_alarm_limits(data: Any) -> None:
                 f"alarm_limits.json 'system' has unknown fields: {sorted(unknown)}"
             )
         for name in (
-            "loggerpi_offline_warning_seconds",
-            "loggerpi_offline_critical_seconds",
-            "queue_depth_warning",
-            "queue_depth_critical",
-            "dead_letter_warning",
-            "dead_letter_critical",
+            "gateway_offline_warning_seconds",
+            "gateway_offline_critical_seconds",
         ):
             if name in system:
                 value = system[name]
@@ -184,32 +174,18 @@ def _validate_alarm_limits(data: Any) -> None:
                     raise ConfigValidationError(
                         f"alarm_limits.json 'system.{name}' must be a positive integer."
                     )
-        if "loggerpi_offline_warning_alert_enabled" in system:
-            if not isinstance(system["loggerpi_offline_warning_alert_enabled"], bool):
+        if "gateway_offline_warning_alert_enabled" in system:
+            if not isinstance(system["gateway_offline_warning_alert_enabled"], bool):
                 raise ConfigValidationError(
-                    "alarm_limits.json 'system.loggerpi_offline_warning_alert_enabled' "
+                    "alarm_limits.json 'system.gateway_offline_warning_alert_enabled' "
                     "must be a boolean."
                 )
-        warning = system.get("loggerpi_offline_warning_seconds")
-        critical = system.get("loggerpi_offline_critical_seconds")
+        warning = system.get("gateway_offline_warning_seconds")
+        critical = system.get("gateway_offline_critical_seconds")
         if warning is not None and critical is not None and warning >= critical:
             raise ConfigValidationError(
-                "alarm_limits.json 'system.loggerpi_offline_warning_seconds' "
-                "must be < 'system.loggerpi_offline_critical_seconds'."
-            )
-        q_warning = system.get("queue_depth_warning")
-        q_critical = system.get("queue_depth_critical")
-        if q_warning is not None and q_critical is not None and q_warning >= q_critical:
-            raise ConfigValidationError(
-                "alarm_limits.json 'system.queue_depth_warning' "
-                "must be < 'system.queue_depth_critical'."
-            )
-        dl_warning = system.get("dead_letter_warning")
-        dl_critical = system.get("dead_letter_critical")
-        if dl_warning is not None and dl_critical is not None and dl_warning >= dl_critical:
-            raise ConfigValidationError(
-                "alarm_limits.json 'system.dead_letter_warning' "
-                "must be < 'system.dead_letter_critical'."
+                "alarm_limits.json 'system.gateway_offline_warning_seconds' "
+                "must be < 'system.gateway_offline_critical_seconds'."
             )
 
     sensors = data.get("sensors")

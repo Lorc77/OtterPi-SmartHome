@@ -53,4 +53,3 @@ class SmartHomeBridge:
                 measurements=measurements,
             )
             self.store.store(batch)
-            

@@ -37,11 +37,6 @@ def render_admin(
     sensor_schemas_json = json.dumps(SENSOR_SCHEMAS, ensure_ascii=False)
     unit_labels_json = json.dumps(UNIT_LABELS, ensure_ascii=False)
 
-    connectivity = connectivity or {}
-    queue = connectivity.get("queue", {})
-    queue_depth = queue.get("depth", 0)
-    dead_letter_count = queue.get("dead_letter_count", 0)
-
     return f"""<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -664,8 +659,6 @@ input[type="number"] {{
 <div class="subtitle">
     <span class="lamp {status_class}"></span> {status_text}
     · Last measurement: {last_update}
-    · Queue: {queue_depth}
-    · Dead-letter: {dead_letter_count}
 </div>
 <div class="tabs">
     <button class="tab-btn active" onclick="showTab('alerts', this)">🚨 Alerts</button>
@@ -677,27 +670,27 @@ input[type="number"] {{
 </div>
 
 <div id="tab-rooms" class="tab-panel">
-    <details class="howto">
-        <summary>How-to: Add a new WeatherHub sensor</summary>
-        <ol>
-            <li>Put the sensor into operation (insert battery, pair).</li>
-            <li>Read the sensor ID from the sender or from the batch
-                (e.g. <code>015F9410F3EB</code>).</li>
-            <li>Click "+ Add Device" in the room where the sensor is located and enter:
-                <ul>
-                    <li><strong>Name:</strong> a human-readable name (e.g. "Fridge-freezer").</li>
-                    <li><strong>Key:</strong> <code>weatherhub_</code> + sensor ID in
-                        <strong>lowercase</strong> (e.g. <code>weatherhub_015f9410f3eb</code>).</li>
-                    <li><strong>Type:</strong> select from the dropdown, derived from the first
-                        two digits of the sensor ID (e.g. ID <code>015F9410F3EB</code> →
-                        <code>weatherhub_id01</code>).</li>
-                </ul>
-            </li>
-            <li>The sensor appears in the dashboard.</li>
-            <li>For the alert engine: <code>battery_low</code> is added automatically
-                (for <code>weatherhub_*</code> types).</li>
-        </ol>
-    </details>
+<details class="howto">
+    <summary>How-to: Add a new WeatherHub sensor</summary>
+    <ol>
+        <li>Put the sensor into operation (insert battery, pair).</li>
+        <li>Read the sensor ID from the sender or from the packet
+            (e.g. <code>015F9410F3EB</code>).</li>
+        <li>Click "+ Add Device" in the room where the sensor is located and enter:
+            <ul>
+                <li><strong>Name:</strong> a human-readable name (e.g. "Fridge-freezer").</li>
+                <li><strong>Key:</strong> <code>weatherhub_</code> + sensor ID in
+                    <strong>lowercase</strong> (e.g. <code>weatherhub_015f9410f3eb</code>).</li>
+                <li><strong>Type:</strong> select from the dropdown, derived from the first
+                    two digits of the sensor ID (e.g. ID <code>015F9410F3EB</code> →
+                    <code>weatherhub_id01</code>).</li>
+            </ul>
+        </li>
+        <li>The sensor appears in the dashboard.</li>
+        <li>For the alert engine: <code>battery_low</code> is added automatically
+            (for <code>weatherhub_*</code> types).</li>
+    </ol>
+</details>
     <div id="rooms-list" class="rooms-list"></div>
     <div class="save-row">
         <button class="btn btn-primary"
@@ -719,26 +712,26 @@ input[type="number"] {{
 </div>
 
 <div id="tab-alarm" class="tab-panel">
-    <details class="howto">
-        <summary>How-to: Configure alert limits</summary>
-        <ol>
-            <li>Click "Edit Limits" on a device to configure:
-                <ul>
-                    <li>Warning/critical limits (min/max) per measurement.</li>
-                    <li>Rate-of-change limit (per hour) per measurement.</li>
-                    <li>Stale/invalid alerts per device (under "States").</li>
-                </ul>
-            </li>
-            <li>WeatherHub sensors are automatically added to the alert engine
-                (battery_low state).</li>
-            <li>Limits are checked after every batch and every 300 seconds.</li>
-            <li>Alerts are deduplicated, respect quiet hours, and are sent via the
-                configured notifiers.</li>
-            <li>Use "Show all" to display all schema fields (including unsupported ones).</li>
-            <li><strong>Acknowledged alerts are not re-sent until the state changes.</strong></li>
-            <li><strong>Resolved alerts are marked as "Resolved" in the alert history.</strong></li>
-        </ol>
-    </details>
+<details class="howto">
+    <summary>How-to: Configure alert limits</summary>
+    <ol>
+        <li>Click "Edit Limits" on a device to configure:
+            <ul>
+                <li>Warning/critical limits (min/max) per measurement.</li>
+                <li>Rate-of-change limit (per hour) per measurement.</li>
+                <li>Stale/invalid alerts per device (under "States").</li>
+            </ul>
+        </li>
+        <li>WeatherHub sensors are automatically added to the alert engine
+            (battery_low state).</li>
+        <li>Limits are checked after every packet and every 300 seconds.</li>
+        <li>Alerts are deduplicated, respect quiet hours, and are sent via the
+            configured notifiers.</li>
+        <li>Use "Show all" to display all schema fields (including unsupported ones).</li>
+        <li><strong>Acknowledged alerts are not re-sent until the state changes.</strong></li>
+        <li><strong>Resolved alerts are marked as "Resolved" in the alert history.</strong></li>
+    </ol>
+</details>
     <div id="alarm-list" class="rooms-list"></div>
     <div class="save-row">
         <label>
@@ -1268,86 +1261,42 @@ async function loadAlarmLimits() {{
         const showAll = document.getElementById('alarm-show-all').checked;
         list.innerHTML = '';
 
-        // System-Karte (LoggerPi-Offline-Erkennung + Queue/Dead-Letter)
-        const system = alarmLimits.system || {{}};
-        const warningSeconds = system.loggerpi_offline_warning_seconds ?? 1800;
-        const criticalSeconds = system.loggerpi_offline_critical_seconds ?? 3600;
-        const warningAlertEnabled = system.loggerpi_offline_warning_alert_enabled ?? false;
-        const queueWarning = system.queue_depth_warning ?? 10;
-        const queueCritical = system.queue_depth_critical ?? 50;
-        const deadLetterWarning = system.dead_letter_warning ?? 1;
-        const deadLetterCritical = system.dead_letter_critical ?? 10;
+// System-Karte (Gateway-Offline-Erkennung)
+const system = alarmLimits.system || {{}};
+const warningSeconds = system.gateway_offline_warning_seconds ?? 1800;
+const criticalSeconds = system.gateway_offline_critical_seconds ?? 3600;
+const warningAlertEnabled = system.gateway_offline_warning_alert_enabled ?? false;
 
-        const connectivity = latestData.connectivity || {{}};
-        const queue = connectivity.queue || {{}};
-        const currentQueueDepth = queue.depth ?? 0;
-        const currentDeadLetter = queue.dead_letter_count ?? 0;
+const systemCard = document.createElement('div');
+systemCard.className = 'room-card';
+systemCard.innerHTML = `
+    <h3>⚙️ System</h3>
 
-        const systemCard = document.createElement('div');
-        systemCard.className = 'room-card';
-        systemCard.innerHTML = `
-            <h3>⚙️ System</h3>
+    <h4>Gateway offline detection</h4>
+    <div class="config-grid">
+        <div class="config-item">
+            <label>Warning threshold (minutes):</label>
+            <input type="number" id="system-warning-minutes"
+                    value="${{Math.round(warningSeconds / 60)}}" min="1">
+        </div>
+        <div class="config-item">
+            <label>Critical threshold (minutes):</label>
+            <input type="number" id="system-critical-minutes"
+                    value="${{Math.round(criticalSeconds / 60)}}" min="1">
+        </div>
+        <div class="config-item config-item-checkbox">
+            <label>Send warning alert at warning threshold:</label>
+            <input type="checkbox" id="system-warning-alert"
+                    ${{warningAlertEnabled ? 'checked' : ''}}>
+        </div>
+    </div>
 
-            <h4>LoggerPi offline detection</h4>
-            <div class="config-grid">
-                <div class="config-item">
-                    <label>Warning threshold (minutes):</label>
-                    <input type="number" id="system-warning-minutes"
-                            value="${{Math.round(warningSeconds / 60)}}" min="1">
-                </div>
-                <div class="config-item">
-                    <label>Critical threshold (minutes):</label>
-                    <input type="number" id="system-critical-minutes"
-                            value="${{Math.round(criticalSeconds / 60)}}" min="1">
-                </div>
-                <div class="config-item config-item-checkbox">
-                    <label>Send warning alert at warning threshold:</label>
-                    <input type="checkbox" id="system-warning-alert"
-                            ${{warningAlertEnabled ? 'checked' : ''}}>
-                </div>
-            </div>
-
-            <h4>Queue / Dead-Letter</h4>
-            <div class="config-grid">
-                <div class="config-item">
-                    <label>Queue depth warning:</label>
-                    <input type="number" id="system-queue-warning"
-                            value="${{queueWarning}}" min="1">
-                </div>
-                <div class="config-item">
-                    <label>Queue depth critical:</label>
-                    <input type="number" id="system-queue-critical"
-                            value="${{queueCritical}}" min="1">
-                </div>
-                <div class="config-item">
-                    <label>Dead-letter warning:</label>
-                    <input type="number" id="system-dead-letter-warning"
-                            value="${{deadLetterWarning}}" min="1">
-                </div>
-                <div class="config-item">
-                    <label>Dead-letter critical:</label>
-                    <input type="number" id="system-dead-letter-critical"
-                            value="${{deadLetterCritical}}" min="1">
-                </div>
-            </div>
-
-            <div class="config-grid">
-                <div class="config-item">
-                    <label>Current queue depth:</label>
-                    <span id="system-queue-current">${{currentQueueDepth}}</span>
-                </div>
-                <div class="config-item">
-                    <label>Current dead-letter count:</label>
-                    <span id="system-dead-letter-current">${{currentDeadLetter}}</span>
-                </div>
-            </div>
-
-            <div class="save-row">
-                <button class="btn btn-primary btn-small"
-                        onclick="saveSystemConfig()">💾 Save System</button>
-            </div>
-        `;
-        list.appendChild(systemCard);
+    <div class="save-row">
+        <button class="btn btn-primary btn-small"
+                onclick="saveSystemConfig()">💾 Save System</button>
+    </div>
+`;
+list.appendChild(systemCard);
 
         // Raum-Kacheln mit Geräte-Kacheln
         for (const [roomId, room] of Object.entries(rooms)) {{
@@ -1404,21 +1353,9 @@ async function saveSystemConfig() {{
             document.getElementById('system-critical-minutes').value
         );
         const warningAlert = document.getElementById('system-warning-alert').checked;
-        alarmLimits.system.loggerpi_offline_warning_seconds = warningMinutes * 60;
-        alarmLimits.system.loggerpi_offline_critical_seconds = criticalMinutes * 60;
-        alarmLimits.system.loggerpi_offline_warning_alert_enabled = warningAlert;
-        alarmLimits.system.queue_depth_warning = parseInt(
-            document.getElementById('system-queue-warning').value
-        );
-        alarmLimits.system.queue_depth_critical = parseInt(
-            document.getElementById('system-queue-critical').value
-        );
-        alarmLimits.system.dead_letter_warning = parseInt(
-            document.getElementById('system-dead-letter-warning').value
-        );
-        alarmLimits.system.dead_letter_critical = parseInt(
-            document.getElementById('system-dead-letter-critical').value
-        );
+        alarmLimits.system.gateway_offline_warning_seconds = warningMinutes * 60;
+        alarmLimits.system.gateway_offline_critical_seconds = criticalMinutes * 60;
+        alarmLimits.system.gateway_offline_warning_alert_enabled = warningAlert;
         const putResp = await fetch('/api/admin/alarm-limits', {{
             method: 'PUT',
             headers: {{'Content-Type': 'application/json'}},

@@ -264,12 +264,6 @@ def _render_overview(store: BatchStore) -> str:
     warning_seconds, critical_seconds = load_offline_thresholds()
     status_class, status_text = offline_status(last_received, warning_seconds, critical_seconds)
 
-    # Connectivity aus dem letzten Batch
-    connectivity = batches[-1].get("connectivity", {}) if batches else {}
-    queue = connectivity.get("queue", {})
-    queue_depth = queue.get("depth", 0)
-    dead_letter_count = queue.get("dead_letter_count", 0)
-
     return f"""<!DOCTYPE html>
 <html lang="de">
 <head>
@@ -444,7 +438,7 @@ h1 {{ text-align: center; margin-top: 0; }}
     <div class="system-grid">
         <div>
             <div class="system-line">
-                <span>Last batch:</span><span>{system_current["last_batch"]}</span>
+                <span>Last packet:</span><span>{system_current["last_batch"]}</span>
             </div>
             <div class="system-line">
                 <span>CPU Temperature:</span><span>{system_current["cpu_temp"]:.1f} °C</span>
@@ -455,13 +449,7 @@ h1 {{ text-align: center; margin-top: 0; }}
         </div>
         <div>
             <div class="system-line">
-                <span>Batches (48h):</span><span>{len(batches)}</span>
-            </div>
-            <div class="system-line">
-                <span>Queue depth:</span><span>{queue_depth}</span>
-            </div>
-            <div class="system-line">
-                <span>Dead-letter count:</span><span>{dead_letter_count}</span>
+                <span>Packets (48h):</span><span>{len(batches)}</span>
             </div>
         </div>
     </div>
@@ -1764,7 +1752,7 @@ def _render_device_detail(
         if device_info:
             break
 
-    if device_info is None:
+    if device_info is None or room is None:
         return _render_not_found()
 
     device_type = device_info.get("type", "atmoweb")

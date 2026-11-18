@@ -1,0 +1,15 @@
+[Unit]
+Description=Backup OtterPi-SmartHome databases to NAS
+After=network-online.target
+Wants=network-online.target
+RequiresMountsFor=/mnt/otterbox
+
+[Service]
+Type=oneshot
+User=makki
+Group=makki
+EnvironmentFile=/etc/otterpi-smarthome/smarthome.env
+Environment="PYTHONPATH=/opt/otterpi-smarthome:/opt/otterpi-smarthome/model"
+ExecStart=/usr/bin/python3 /opt/otterpi-smarthome/backup.py
+StandardOutput=journal
+StandardError=journal

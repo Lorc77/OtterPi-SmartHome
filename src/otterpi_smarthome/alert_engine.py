@@ -94,18 +94,18 @@ class AlertEngine(threading.Thread):
             for device in room["devices"]:
                 sensor_map[device["key"]] = (room["name"], device["name"])
 
-        # Heartbeat zuerst prüfen (auch wenn noch kein Batch empfangen wurde)
+        # Heartbeat zuerst prüfen (auch wenn noch kein Paket empfangen wurde)
         system_config = alarm_limits.get("system", {})
-        offline_alert, is_offline = self._check_loggerpi_heartbeat(system_config, messages)
+        offline_alert, is_offline = self._check_gateway_heartbeat(system_config, messages)
         if is_offline:
             if offline_alert is not None:
                 self._dispatch(offline_alert, mail, notifiers)
-            # Sensor-/State-Checks aussetzen, solange der LoggerPi offline ist
+            # Sensor-/State-Checks aussetzen, solange das Gateway offline ist
             return
 
-        # LoggerPi ist wieder online → Offline-Alerts resolven
+        # Gateway ist wieder online → Offline-Alerts resolven
         for severity in ("critical", "warning"):
-            dedup_key = f"system:loggerpi_offline:{severity}"
+            dedup_key = f"system:gateway_offline:{severity}"
             self._alert_store.resolve(dedup_key)
 
         batch = self._store.latest()
@@ -123,7 +123,6 @@ class AlertEngine(threading.Thread):
         self._pending_alerts.extend(
             self._check_states(batch_dict, alarm_limits.get("states", {}), messages, sensor_map)
         )
-        self._pending_alerts.extend(self._check_connectivity(batch_dict, system_config, messages))
 
         for alert in self._pending_alerts:
             self._dispatch(alert, mail, notifiers)
@@ -181,10 +180,10 @@ class AlertEngine(threading.Thread):
         prefix = f"{room} / {device}" if room else device
         return f"[{severity.upper()}] {measurement} — {prefix}"
 
-    def _check_loggerpi_heartbeat(
+    def _check_gateway_heartbeat(
         self, system_config: dict, messages: Optional[dict] = None
     ) -> tuple[Optional[Alert], bool]:
-        """Prüft den LoggerPi-Heartbeat.
+        """Prüft den Gateway-Heartbeat.
 
         Liefert ``(alert, is_offline)``:
 
@@ -195,10 +194,10 @@ class AlertEngine(threading.Thread):
         """
         messages = messages or {}
         warning_seconds, critical_seconds = load_offline_thresholds(system_config)
-        warning_alert_enabled = system_config.get("loggerpi_offline_warning_alert_enabled", False)
+        warning_alert_enabled = system_config.get("gateway_offline_warning_alert_enabled", False)
 
-        rule_text = messages.get("loggerpi_offline", "offline")
-        measurement_name = MEASUREMENT_DISPLAY_NAMES.get("loggerpi_offline", "LoggerPi")
+        rule_text = messages.get("gateway_offline", "offline")
+        measurement_name = MEASUREMENT_DISPLAY_NAMES.get("gateway_offline", "Gateway")
 
         last_received_at = self._store.latest_received_at()
         if last_received_at is None:
@@ -215,11 +214,11 @@ class AlertEngine(threading.Thread):
         if age_seconds >= critical_seconds:
             return (
                 Alert(
-                    sensor="system.loggerpi",
+                    sensor="system.gateway",
                     severity="critical",
-                    message=f"LoggerPi {rule_text} for {minutes} minutes.",
-                    rule="loggerpi_offline",
-                    dedup_key="system:loggerpi_offline:critical",
+                    message=f"Gateway {rule_text} for {minutes} minutes.",
+                    rule="gateway_offline",
+                    dedup_key="system:gateway_offline:critical",
                     subject=f"[CRITICAL] {measurement_name}",
                 ),
                 True,
@@ -229,11 +228,11 @@ class AlertEngine(threading.Thread):
             if warning_alert_enabled:
                 return (
                     Alert(
-                        sensor="system.loggerpi",
+                        sensor="system.gateway",
                         severity="warning",
-                        message=f"LoggerPi {rule_text} for {minutes} minutes.",
-                        rule="loggerpi_offline",
-                        dedup_key="system:loggerpi_offline:warning",
+                        message=f"Gateway {rule_text} for {minutes} minutes.",
+                        rule="gateway_offline",
+                        dedup_key="system:gateway_offline:warning",
                         subject=f"[WARNING] {measurement_name}",
                     ),
                     True,
@@ -395,122 +394,6 @@ class AlertEngine(threading.Thread):
 
         return alerts
 
-    def _check_connectivity(
-        self,
-        batch: dict,
-        system_config: dict,
-        messages: dict,
-    ) -> list:
-        """Prüft die Queue-/Dead-Letter-Statistik aus dem Batch.
-
-        - Queue-Depth: Warnung ab ``queue_depth_warning``, kritisch ab
-          ``queue_depth_critical``.
-        - Dead-Letter: Warnung ab ``dead_letter_warning``, kritisch ab
-          ``dead_letter_critical``.
-        """
-        connectivity = batch.get("connectivity", {})
-        queue = connectivity.get("queue", {})
-        depth = queue.get("depth", 0)
-        dead_letter = queue.get("dead_letter_count", 0)
-
-        alerts = []
-
-        # Queue-Depth
-        q_warning = system_config.get("queue_depth_warning", 10)
-        q_critical = system_config.get("queue_depth_critical", 50)
-
-        if depth >= q_critical:
-            alerts.append(
-                self._make_alert(
-                    sensor="system.queue",
-                    rule="queue_depth",
-                    severity="critical",
-                    message=self._build_connectivity_message(
-                        "queue_depth", depth, q_critical, messages
-                    ),
-                    value=depth,
-                    threshold=q_critical,
-                    subject=self._build_connectivity_subject("queue_depth", "critical"),
-                )
-            )
-        elif depth >= q_warning:
-            alerts.append(
-                self._make_alert(
-                    sensor="system.queue",
-                    rule="queue_depth",
-                    severity="warning",
-                    message=self._build_connectivity_message(
-                        "queue_depth", depth, q_warning, messages
-                    ),
-                    value=depth,
-                    threshold=q_warning,
-                    subject=self._build_connectivity_subject("queue_depth", "warning"),
-                )
-            )
-        else:
-            self._alert_store.resolve("system.queue:queue_depth:critical")
-            self._alert_store.resolve("system.queue:queue_depth:warning")
-
-        # Dead-Letter
-        dl_warning = system_config.get("dead_letter_warning", 1)
-        dl_critical = system_config.get("dead_letter_critical", 10)
-
-        if dead_letter >= dl_critical:
-            alerts.append(
-                self._make_alert(
-                    sensor="system.dead_letter",
-                    rule="dead_letter",
-                    severity="critical",
-                    message=self._build_connectivity_message(
-                        "dead_letter", dead_letter, dl_critical, messages
-                    ),
-                    value=dead_letter,
-                    threshold=dl_critical,
-                    subject=self._build_connectivity_subject("dead_letter", "critical"),
-                )
-            )
-        elif dead_letter >= dl_warning:
-            alerts.append(
-                self._make_alert(
-                    sensor="system.dead_letter",
-                    rule="dead_letter",
-                    severity="warning",
-                    message=self._build_connectivity_message(
-                        "dead_letter", dead_letter, dl_warning, messages
-                    ),
-                    value=dead_letter,
-                    threshold=dl_warning,
-                    subject=self._build_connectivity_subject("dead_letter", "warning"),
-                )
-            )
-        else:
-            self._alert_store.resolve("system.dead_letter:dead_letter:critical")
-            self._alert_store.resolve("system.dead_letter:dead_letter:warning")
-
-        return alerts
-
-    def _build_connectivity_message(
-        self,
-        rule: str,
-        value: int,
-        threshold: int,
-        messages: dict,
-    ) -> str:
-        if rule == "queue_depth":
-            rule_text = messages.get("queue_depth", "too high")
-            return f"LoggerPi queue depth {rule_text}: {value} >= {threshold}"
-        if rule == "dead_letter":
-            rule_text = messages.get("dead_letter", "too high")
-            return f"LoggerPi dead-letter count {rule_text}: {value} >= {threshold}"
-        return f"LoggerPi {rule}: {value} >= {threshold}"
-
-    def _build_connectivity_subject(self, rule: str, severity: str) -> str:
-        if rule == "queue_depth":
-            return f"[{severity.upper()}] Queue depth"
-        if rule == "dead_letter":
-            return f"[{severity.upper()}] Dead-letter"
-        return f"[{severity.upper()}] {rule}"
-
     def _make_alert(
         self,
         *,
@@ -534,6 +417,8 @@ class AlertEngine(threading.Thread):
         )
 
     def _dispatch(self, alert: Alert, mail: dict, notifiers: list) -> None:
+        if alert.dedup_key is None:
+            return
         dedup_seconds = mail.get("dedup_seconds", 3600)
         since = (datetime.now(timezone.utc) - timedelta(seconds=dedup_seconds)).isoformat()
         if self._alert_store.recent_dedup_keys(alert.dedup_key, since):
