@@ -41,11 +41,10 @@ class SmartHomeBridge:
 
             self.reader.update_from_packets([packet], client_ip=client_ip)
             measurements = self.reader.measurements_from_packet(packet)
-
-            if not measurements:
-                continue
-
             states = self.reader.read_state(packet.sensor_id)
+
+            if not measurements and not states:
+                continue
             batch = Batch(
                 batch_id=str(uuid4()),
                 logger_id=self.logger_id,
