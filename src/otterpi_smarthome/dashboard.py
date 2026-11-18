@@ -249,11 +249,20 @@ def _render_overview(store: BatchStore) -> str:
                 device_type = device.get("type", "atmoweb")
                 current = _device_current(batches, device["key"], device_type)
                 current["status"] = _device_status(batches, device["key"], device_type)
+                if device_type == "weatherhub_id10":
+                    latest = _latest_batch_for_device(batches, device["key"])
+                    states = latest.get("states", {}).get(device["key"], {})
+                    if "contact_open" in states:
+                        value_text = "Open" if states["contact_open"] else "Closed"
+                    else:
+                        value_text = ""
+                else:
+                    value_text = current["value"]
                 device_lines += (
                     f'<div class="device-line">'
                     f'<span class="lamp {current["status"]}"></span>'
                     f"<span>{device['name']}</span>"
-                    f'<span class="device-value">{current["value"]}</span>'
+                    f'<span class="device-value">{value_text}</span>'
                     f"</div>"
                 )
 
@@ -888,6 +897,40 @@ h1 {{ text-align: center; margin-top: 0; }}
     .grid {{ grid-template-columns: 1fr; }}
     .system-line {{ grid-template-columns: 160px 1fr; }}
     .device-card-full {{ grid-column: 1 / -1; }}
+}}
+
+.events-title {{
+    margin: 12px 0 6px 0;
+    color: #bfdbfe;
+    font-size: .9rem;
+}}
+.events-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+    margin-top: 6px;
+}}
+.events-table th {{
+    text-align: left;
+    padding: 6px 10px;
+    color: #9ca3af;
+    font-weight: normal;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+}}
+.events-table td {{
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+}}
+.events-table tr:hover {{
+    background: rgba(147,197,253,.05);
+}}
+.event-open {{
+    color: #fbbf24;
+    font-weight: 600;
+}}
+.event-closed {{
+    color: #22c55e;
+    font-weight: 600;
 }}
 </style>
 </head>
@@ -2405,6 +2448,40 @@ h1 {{ text-align: center; margin-top: 0; }}
     .custom-date-form {{ margin-left: 0; margin-top: 10px; }}
     .current-values-header {{ flex-direction: column; }}
 }}
+
+.events-title {{
+    margin: 12px 0 6px 0;
+    color: #bfdbfe;
+    font-size: .9rem;
+}}
+.events-table {{
+    width: 100%;
+    border-collapse: collapse;
+    font-size: .85rem;
+    margin-top: 6px;
+}}
+.events-table th {{
+    text-align: left;
+    padding: 6px 10px;
+    color: #9ca3af;
+    font-weight: normal;
+    border-bottom: 1px solid rgba(255,255,255,.1);
+}}
+.events-table td {{
+    padding: 6px 10px;
+    border-bottom: 1px solid rgba(255,255,255,.05);
+}}
+.events-table tr:hover {{
+    background: rgba(147,197,253,.05);
+}}
+.event-open {{
+    color: #fbbf24;
+    font-weight: 600;
+}}
+.event-closed {{
+    color: #22c55e;
+    font-weight: 600;
+}}
 </style>
 </head>
 <body>
@@ -2553,6 +2630,19 @@ a {
 # ---------------------------------------------------------------------------
 
 
+def _relative_time(timestamp: int) -> str:
+    """Liefert die relative Zeit (z.B. 'vor 5 min')."""
+    now = datetime.now(timezone.utc).timestamp()
+    diff = int(now - timestamp)
+    if diff < 60:
+        return f"vor {diff} s"
+    if diff < 3600:
+        return f"vor {diff // 60} min"
+    if diff < 86400:
+        return f"vor {diff // 3600} h"
+    return f"vor {diff // 86400} d"
+
+
 def _render_contact_events(events: list[dict]) -> str:
     """Rendert die Kontakt-Ereignisse als Tabelle."""
     if not events:
@@ -2560,17 +2650,20 @@ def _render_contact_events(events: list[dict]) -> str:
     rows = ""
     for e in events:
         state = "Open" if e["open"] else "Closed"
+        state_class = "event-open" if e["open"] else "event-closed"
         since = "–"
+        relative = "–"
         if e["since"]:
-            since = (
-                datetime.fromtimestamp(e["since"], tz=timezone.utc)
-                .astimezone(BERLIN)
-                .strftime("%d.%m. %H:%M")
-            )
-        rows += f"<tr><td>{e['label']}</td><td>{state}</td><td>{since}</td></tr>"
+            dt = datetime.fromtimestamp(e["since"], tz=timezone.utc).astimezone(BERLIN)
+            since = dt.strftime("%d.%m.%Y %H:%M:%S")
+            relative = _relative_time(e["since"])
+        rows += (
+            f'<tr><td class="{state_class}">{state}</td><td>{since}</td><td>{relative}</td></tr>'
+        )
     return (
+        '<h4 class="events-title">History</h4>'
         '<table class="events-table">'
-        "<thead><tr><th>Event</th><th>State</th><th>Time</th></tr></thead>"
+        "<thead><tr><th>State</th><th>Time</th><th>Relative</th></tr></thead>"
         f"<tbody>{rows}</tbody></table>"
     )
 

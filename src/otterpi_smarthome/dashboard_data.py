@@ -651,7 +651,6 @@ def _contact_events(states: dict) -> list[dict]:
         ("_previous", "Previous"),
         ("_previous_1", "Previous 1"),
         ("_previous_2", "Previous 2"),
-        ("_previous_3", "Previous 3"),
     ):
         open_key = f"contact{suffix}_open"
         since_key = f"contact{suffix}_since"

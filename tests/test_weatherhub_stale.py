@@ -250,7 +250,6 @@ class TestWeatherHubStaleLogic:
                 "contact_previous": {"open": False, "time_unit": 2, "elapsed_value": 10},
                 "contact_previous_1": {"open": True, "time_unit": 2, "elapsed_value": 15},
                 "contact_previous_2": {"open": False, "time_unit": 2, "elapsed_value": 20},
-                "contact_previous_3": {"open": True},
                 "status": {"battery_low": False, "event_transmission": True, "counter": 42},
             },
         )
@@ -263,6 +262,5 @@ class TestWeatherHubStaleLogic:
         assert s["contact_previous_open"] is False
         assert s["contact_previous_1_open"] is True
         assert s["contact_previous_2_open"] is False
-        assert s["contact_previous_3_open"] is True
         assert s["counter"] == 42
         assert s["event_transmission"] is True

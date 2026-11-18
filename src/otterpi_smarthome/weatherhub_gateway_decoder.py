@@ -156,7 +156,6 @@ def decode_current_values(sensor_type: int, payload: bytes) -> dict[str, Any]:
         result["contact_previous"] = decode_door_window(payload[4:6])
         result["contact_previous_1"] = decode_door_window(payload[6:8])
         result["contact_previous_2"] = decode_door_window(payload[8:10])
-        result["contact_previous_3"] = {"open": bool(payload[10] & 0x80)}
 
     return result
 

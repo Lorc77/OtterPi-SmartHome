@@ -292,7 +292,7 @@ class WeatherHubReader:
 
             # ID10: contact_open + Zeitpunkt + previous events
             if packet.sensor_type == 0x10:
-                for suffix in ("", "_previous", "_previous_1", "_previous_2", "_previous_3"):
+                for suffix in ("", "_previous", "_previous_1", "_previous_2"):
                     contact = decoded.get(f"contact{suffix}")
                     if isinstance(contact, dict):
                         sensor_states[f"contact{suffix}_open"] = contact.get("open", False)
