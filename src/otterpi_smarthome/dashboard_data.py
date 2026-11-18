@@ -404,6 +404,8 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
         return "status-critical"
 
     if device_type == "weatherhub_id10":
+        if not states:
+            return "status-off"
         if states.get("battery_low"):
             return "status-warn"
         contact_rule = _load_alarm_limits_cached().get("states", {}).get(f"{key}.contact_open", {})
