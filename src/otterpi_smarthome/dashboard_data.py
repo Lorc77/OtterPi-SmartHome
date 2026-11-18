@@ -662,6 +662,7 @@ def _contact_events(states: dict) -> list[dict]:
                     "since": states.get(since_key),
                 }
             )
+    events.sort(key=lambda e: e["since"] or 0, reverse=True)
     return events
 
 
