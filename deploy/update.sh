@@ -5,7 +5,7 @@ REPO_URL="https://github.com/Lorc77/OtterPi-SmartHome.git"
 BRANCH="main"
 ROLE="${1:-}"
 
-SERVICE_NAME="otterpi-smarthome.observer.service"
+SERVICE_NAME="smarthome.observer.service"
 INSTALL_DIR="/opt/otterpi-smarthome"
 STATE_DIR="/var/lib/otterpi-smarthome"
 CONFIG_DIR="/etc/otterpi-smarthome"

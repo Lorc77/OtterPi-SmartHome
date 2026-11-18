@@ -3,7 +3,7 @@ set -euo pipefail
 
 REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 INSTALL_DIR="/opt/otterpi-smarthome"
-SERVICE_NAME="otterpi-smarthome.observer.service"
+SERVICE_NAME="smarthome.observer.service"
 SERVICE_FILE="$REPO_DIR/deploy/smarthome/$SERVICE_NAME"
 
 echo "Installing OtterPi-SmartHome to $INSTALL_DIR"
