@@ -288,3 +288,81 @@ ls -la /var/lib/otterpi-smarthome/
 Danach: `docs/deployment/DEPLOYMENT.md`, `docs/development/DEVELOPMENT.md`, `docs/weatherhub.md`.
 
 Dann: Phase 4 (Deploy), Phase 5 (Gateway), Phase 6 (Verifizieren).
+
+---
+
+## 11. Fahrplan
+
+### Erledigt
+
+#### Phase 1 — Texte anpassen ✅
+- `heartbeat.py`: `loggerpi_offline_*` → `gateway_offline_*`, „Batch" → „Packet", „LoggerPi" → „Gateway".
+- `admin.py`: Queue/Dead-Letter entfernt, `loggerpi_offline_*` → `gateway_offline_*`.
+- `dashboard.py`: Queue/Dead-Letter entfernt, „Batch" → „Packet".
+- `alert_engine.py`: `_check_loggerpi_heartbeat` → `_check_gateway_heartbeat`, `_check_connectivity` entfernt.
+- `sensor_schemas.py`: AtmoWEB/Freezer/MEMMERT entfernt, WeatherHub bleibt inkl. ID10.
+- `config_store.py`: `loggerpi_offline` → `gateway_offline`, Queue/Dead-Letter entfernt.
+
+#### Phase 2 — Tests anpassen ✅
+- Bestehende Tests angepasst.
+- Neue Tests: `test_sequence_store.py`, `test_smarthome_bridge.py`, `test_weatherhub.py`.
+- **424 Tests grün.**
+
+#### Phase 3 — Doku ✅
+- `README.md`, `docs/PROJECT-STATE.md`, `docs/development/DECISIONS.md`, `docs/deployment/DEPLOYMENT.md`, `docs/development/DEVELOPMENT.md`, `docs/weatherhub.md`.
+
+#### Repo-Aufräumen ✅
+- `docs/research/`, `docs/legacy/`, `docs/baselines/`, `docs/api/`, `docs/data-model/` entfernt.
+- `docs/system-inventory.md`, `docs/WIEDEREINSTIEG.md`, `docs/development/DEVELOPMENT-ENVIRONMENT.md`, `docs/development/DEVELOPMENT-QUALITY.md`, `docs/development/REFACTORING.md` entfernt.
+- `deploy/otterpi/` entfernt.
+- `src/otterpi_smarthome/otterpi_observer.py` + `tests/test_otterpi_observer.py` entfernt.
+- `deploy/smarthome/` um `smarthome-archive-batches.service`/`.timer` und `smarthome-backup.service`/`.timer` erweitert.
+- `install.sh` um Timer-Installation erweitert.
+
+#### Git ✅
+- Repo auf GitHub gepusht (`Lorc77/OtterPi-SmartHome`).
+- Tag `v0.1.0` gesetzt und gepusht.
+
+#### CI-Fix (teilweise) 🟡
+- `runs-on: ubuntu-22.04` eingetragen.
+- **Noch offen:** Python-3.9-Job läuft noch in der Matrix. Entweder `ubuntu-22.04` beibehalten (dann läuft 3.9) oder auf 3.13-only umstellen (Phase 7).
+
+---
+
+### Offen
+
+#### Phase 4 — Deploy (in Arbeit)
+- [ ] `sudo /usr/local/sbin/otterpi-smarthome-update smarthome`
+- [ ] Verifikation: `systemctl status`, `DEPLOYED_VERSION`, `ls -la /var/lib/otterpi-smarthome/`, `journalctl`
+
+#### Phase 5 — Gateway konfigurieren
+- [ ] Gateway auf `192.168.178.100:3779` zeigen lassen.
+- [ ] Proxy-Modus aktivieren.
+- [ ] Cloud-Forward aktivieren (falls gewünscht).
+- [ ] Allowlist prüfen (`SMARTHOME_WEATHERHUB_ALLOWLIST`).
+
+#### Phase 6 — Verifizieren
+- [ ] Dashboard (`http://192.168.178.100:8091/`).
+- [ ] Admin (`http://192.168.178.100:8091/admin`).
+- [ ] Räume anlegen, Sensoren zuordnen.
+- [ ] Alarm Limits konfigurieren.
+- [ ] Mail/Notifications/Messages konfigurieren.
+- [ ] Datenbank wächst.
+- [ ] Cloud-Forward funktioniert.
+
+#### Phase 7 — Python 3.13-Modernisierung (neu)
+- [ ] `pyproject.toml`: `requires-python = ">=3.13"`, `target-version = "py313"`, `FA102` weg, `per-file-ignores` weg.
+- [ ] `.github/workflows/ci.yml`: nur Python 3.13 (dann kann `ubuntu-22.04` wieder auf `ubuntu-latest`).
+- [ ] `docs/development/DEVELOPMENT.md`: Python 3.13 als Minimum.
+- [ ] Code: `Optional[str]` → `str | None`, `Union[str, Path]` → `str | Path` (Ruff `UP` meckert sonst).
+- [ ] Tests: `pytest` grün.
+
+---
+
+### Nächster konkreter Schritt
+
+**Phase 4:** Deploy auf dem OtterPi (`sudo /usr/local/sbin/otterpi-smarthome-update smarthome`).
+
+Danach: Phase 5 (Gateway), Phase 6 (Verifizieren), Phase 7 (Python 3.13-Modernisierung).
+
+**Hinweis:** Der CI-Fix (`ubuntu-22.04`) ist nur eine Zwischenlösung. Mit Phase 7 (3.13-only) kann `ubuntu-latest` wieder verwendet werden.
