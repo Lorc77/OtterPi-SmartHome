@@ -734,8 +734,6 @@ def _device_chips(
             age = (datetime.now(timezone.utc) - datetime.fromisoformat(created_at)).total_seconds()
             minutes = int(age // 60)
             chips.append((f"⚠ No data for {minutes} min", "chip-warn"))
-    elif sensor_state == "offline":
-        chips.append(("Offline", "chip-off"))
 
     # 5) State-Chips
     if states.get("water_contact"):
