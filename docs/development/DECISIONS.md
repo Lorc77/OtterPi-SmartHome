@@ -712,6 +712,50 @@ ID10 liefert mehr als nur den aktuellen Kontakt-Zustand: die letzten 4 Zustandsw
 
 ---
 
+## DEC-025 — Gemeinsame Stale/Offline-Logik in `status.py`
+
+**Status:** Accepted
+**Datum:** 2026-11-19
+
+### Kontext
+
+Die Stale-Logik war in `dashboard_data.py` (`_device_status`) und `alert_engine.py` (über `validity`) doppelt und inkonsistent. Im SmartHome wird `validity="stale"` nie gesetzt (weil `measurements_from_packet` nur den aktuellen Sensor prüft).
+
+### Entscheidung
+
+Neue gemeinsame Funktion `check_sensor_stale()` in `status.py`. Sie prüft die Zeit seit dem letzten Paket (über `_latest_batch_for_device`). `dashboard_data.py` und `alert_engine.py` verwenden sie.
+
+### Konsequenz
+
+- `status.py`: `check_sensor_stale()` und `_latest_batch_for_device()` (neu).
+- `dashboard_data.py`: `_device_status` verwendet `check_sensor_stale`.
+- `alert_engine.py`: `_check_sensors` verwendet `check_sensor_stale`.
+- ID10 ist ausgenommen (sendet nur bei Ereignissen, keine Heartbeats).
+
+---
+
+## DEC-026 — `stale_after_seconds` und `offline_after_seconds` in `alarm_limits.json`
+
+**Status:** Accepted
+**Datum:** 2026-11-19
+
+### Kontext
+
+`SMARTHOME_STALE_AFTER_SECONDS` war eine Env-Variable. Im Admin nicht konfigurierbar.
+
+### Entscheidung
+
+`stale_after_seconds` und `offline_after_seconds` in `alarm_limits.json` unter `system`. Im Admin unter „Alarm Limits" → „System" konfigurierbar.
+
+### Konsequenz
+
+- `config_store.py`: `_validate_alarm_limits` erweitert.
+- `admin.py`: System-Karte um „Stale after" / „Offline after" erweitert.
+- `dashboard_data.py` / `alert_engine.py`: Werte aus `alarm_limits.json` (statt Env).
+- `SMARTHOME_STALE_AFTER_SECONDS` in der `.env` ist obsolet (kann entfernt werden).
+
+---
+
 ## Offene Entscheidungen
 
 Folgende Punkte sind derzeit bewusst noch offen:

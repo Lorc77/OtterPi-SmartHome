@@ -11,7 +11,12 @@ from typing import Any, Optional
 from dashboard_constants import BERLIN
 from otterpi_store import BatchStore
 from sensor_schemas import MEASUREMENT_DISPLAY_NAMES
-from status import calculate_rate_of_change, check_limits
+from status import (
+    _latest_batch_for_device,
+    calculate_rate_of_change,
+    check_limits,
+    check_sensor_stale,
+)
 
 
 def _calculate_average_series(
@@ -289,16 +294,6 @@ def _current_values(batches: list[dict]) -> dict:
     return current
 
 
-def _latest_batch_for_device(batches: list[dict], key: str) -> dict:
-    """Findet den letzten Batch, der Measurements oder States für ``key`` enthält."""
-    for batch in reversed(batches):
-        measurements = batch.get("measurements", {})
-        states = batch.get("states", {})
-        if any(k.startswith(f"{key}.") for k in measurements) or key in states:
-            return batch
-    return {}
-
-
 def _device_current(batches: list[dict], key: str, device_type: str = "atmoweb") -> dict:
     """Ermittelt aktuelle Werte + Status für ein Gerät."""
     result = {
@@ -402,6 +397,16 @@ def _device_status(batches: list[dict], key: str, device_type: str = "atmoweb") 
     limit_status = _limit_status(measurements, limits, batches)
     if limit_status == "status-critical":
         return "status-critical"
+
+    if device_type != "weatherhub_id10":
+        system = _load_alarm_limits_cached().get("system", {})
+        stale_after = system.get("stale_after_seconds", 1800)
+        offline_after = system.get("offline_after_seconds", 43200)
+        sensor_state = check_sensor_stale(batches, key, stale_after, offline_after)
+        if sensor_state == "offline":
+            return "status-off"
+        if sensor_state == "stale":
+            return "status-warn"
 
     if device_type == "weatherhub_id10":
         if not states:
@@ -765,13 +770,6 @@ def _device_chips(
                 chips.append((label, "chip-info"))
         else:
             chips.append(("Contact closed", "chip-info"))
-
-    if device_type == "weatherhub_id10":
-        if "counter" in states:
-            chips.append((f"Counter: {states['counter']}", "chip-info"))
-        if "event_transmission" in states:
-            label = "Event" if states["event_transmission"] else "Heartbeat"
-            chips.append((label, "chip-info"))
 
     if states.get("door_open"):
         chips.append(("Door open", "chip-info"))

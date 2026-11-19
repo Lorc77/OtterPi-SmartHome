@@ -4,7 +4,7 @@
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
 **Stand:** 2026-11-18
-**Version:** v0.1.5
+**Version:** v0.1.6
 
 ---
 
@@ -378,6 +378,16 @@ Danach: Phase 8 (Serverseitige Aggregation).
 - `dashboard_data.py`: `_contact_events()` extrahiert die Kontakt-Ereignisse aus den States.
 - `dashboard.py`: `_render_contact_events()` rendert die Ereignisse als Tabelle. Raumseite und Detailseite zeigen für ID10 statt Chart eine Ereignis-Tabelle.
 - `dashboard_data.py`: `_device_chips()` zeigt für ID10 `counter` und `event_transmission` (Event/Heartbeat).
+
+#### Bugfixes (v0.1.6) ✅
+- `status.py`: `check_sensor_stale()` — gemeinsame Stale/Offline-Logik (Zeit seit letztem Paket).
+- `status.py`: `_latest_batch_for_device()` von `dashboard_data.py` verschoben.
+- `dashboard_data.py`: `_device_status` verwendet `check_sensor_stale`.
+- `alert_engine.py`: `_check_sensors` verwendet `check_sensor_stale` (statt nur `validity`).
+- `config_store.py`: `stale_after_seconds` und `offline_after_seconds` in `alarm_limits.json` (`system`).
+- `admin.py`: System-Karte um „Stale after" / „Offline after" erweitert.
+- `dashboard_data.py`: Chips für `counter` und `event_transmission` entfernt (redundant).
+- `weatherhub.py`: `event_transmission` und `counter` nicht mehr als States (redundant).
 
 ---
 

@@ -174,14 +174,14 @@ Aktueller Stand: **442 Tests**, alle bestehen.
 
 ## Version
 
-Aktuelle Version: **v0.1.5**
+Aktuelle Version: **v0.1.6**
 
 Die Version wird geführt über:
 
-- `pyproject.toml` → `version = "0.1.5"`
-- `src/otterpi_smarthome/__init__.py` → `__version__ = "0.1.5"`
-- `src/otterpi_smarthome/dashboard_constants.py` → `VERSION = "v0.1.5"`
-- Git-Tag `v0.1.5`
+- `pyproject.toml` → `version = "0.1.6"`
+- `src/otterpi_smarthome/__init__.py` → `__version__ = "0.1.6"`
+- `src/otterpi_smarthome/dashboard_constants.py` → `VERSION = "v0.1.6"`
+- Git-Tag `v0.1.6`
 
 ---
 

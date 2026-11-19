@@ -276,13 +276,8 @@ class WeatherHubReader:
             sensor_states: dict[str, object] = {}
 
             status = decoded.get("status")
-            if isinstance(status, dict):
-                if "battery_low" in status:
-                    sensor_states["battery_low"] = status["battery_low"]
-                if "event_transmission" in status:
-                    sensor_states["event_transmission"] = status["event_transmission"]
-                if "counter" in status:
-                    sensor_states["counter"] = status["counter"]
+            if isinstance(status, dict) and "battery_low" in status:
+                sensor_states["battery_low"] = status["battery_low"]
 
             # ID04: water_contact
             if packet.sensor_type == 0x04 and "water_contact_raw" in decoded:

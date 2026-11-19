@@ -14,13 +14,16 @@ from config_store import (
     load_notifications,
 )
 from dashboard_config import get_rooms
+from dashboard_data import _load_alarm_limits_cached
 from heartbeat import load_offline_thresholds
 from notifier import Alert, create_notifiers
 from otterpi_store import BatchStore
 from sensor_schemas import MEASUREMENT_DISPLAY_NAMES, UNIT_LABELS
 from status import (
+    DeviceViolation,
     calculate_rate_of_change,
     check_limits,
+    check_sensor_stale,
     check_stale_invalid,
     check_states,
 )
@@ -258,6 +261,24 @@ class AlertEngine(threading.Thread):
 
         # 1) Stale/Invalid pro Gerät
         device_violations = check_stale_invalid(measurements, sensors, device_config)
+
+        # Zusätzlich: Stale/Offline über Zeit seit letztem Paket
+        system = _load_alarm_limits_cached().get("system", {})
+        stale_after = system.get("stale_after_seconds", 1800)
+        offline_after = system.get("offline_after_seconds", 43200)
+        stale_batches = [b.to_dict() for b in self._store.recent(hours=24)]
+        for sensor_key in sensors:
+            device_key = sensor_key.split(".")[0]
+            sensor_state = check_sensor_stale(stale_batches, device_key, stale_after, offline_after)
+            if sensor_state in ("stale", "offline"):
+                device_violations.append(
+                    DeviceViolation(
+                        device_key=device_key,
+                        rule="stale",
+                        severity="warning",
+                        reason=sensor_state if sensor_state == "offline" else None,
+                    )
+                )
         violated_devices = {v.device_key for v in device_violations}
         for v in device_violations:
             alerts.append(

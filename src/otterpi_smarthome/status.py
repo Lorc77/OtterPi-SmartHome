@@ -1,7 +1,7 @@
 """Gemeinsame Status-/Violation-Logik für Alert-Engine und Dashboard."""
 
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 
@@ -249,3 +249,32 @@ def check_states(
                 )
             )
     return violations
+
+
+def _latest_batch_for_device(batches: list[dict], key: str) -> dict:
+    """Findet den letzten Batch, der Measurements oder States für ``key`` enthält."""
+    for batch in reversed(batches):
+        measurements = batch.get("measurements", {})
+        states = batch.get("states", {})
+        if any(k.startswith(f"{key}.") for k in measurements) or key in states:
+            return batch
+    return {}
+
+
+def check_sensor_stale(
+    batches: list[dict],
+    key: str,
+    stale_after: int,
+    offline_after: int,
+) -> str:
+    """Liefert 'ok', 'stale' oder 'offline' für einen Sensor."""
+    latest = _latest_batch_for_device(batches, key)
+    created_at = latest.get("created_at")
+    if not created_at:
+        return "offline"
+    age = (datetime.now(timezone.utc) - datetime.fromisoformat(created_at)).total_seconds()
+    if age > offline_after:
+        return "offline"
+    if age > stale_after:
+        return "stale"
+    return "ok"

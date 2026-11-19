@@ -1268,6 +1268,8 @@ const system = alarmLimits.system || {{}};
 const warningSeconds = system.gateway_offline_warning_seconds ?? 1800;
 const criticalSeconds = system.gateway_offline_critical_seconds ?? 3600;
 const warningAlertEnabled = system.gateway_offline_warning_alert_enabled ?? false;
+const staleSeconds = system.stale_after_seconds ?? 1800;
+const offlineSeconds = system.offline_after_seconds ?? 43200;
 
 const systemCard = document.createElement('div');
 systemCard.className = 'room-card';
@@ -1290,6 +1292,20 @@ systemCard.innerHTML = `
             <label>Send warning alert at warning threshold:</label>
             <input type="checkbox" id="system-warning-alert"
                     ${{warningAlertEnabled ? 'checked' : ''}}>
+        </div>
+    </div>
+
+    <h4>Sensor stale/offline detection</h4>
+    <div class="config-grid">
+        <div class="config-item">
+            <label>Stale after (minutes):</label>
+            <input type="number" id="system-stale-minutes"
+                    value="${{Math.round(staleSeconds / 60)}}" min="1">
+        </div>
+        <div class="config-item">
+            <label>Offline after (minutes):</label>
+            <input type="number" id="system-offline-minutes"
+                    value="${{Math.round(offlineSeconds / 60)}}" min="1">
         </div>
     </div>
 
@@ -1358,6 +1374,14 @@ async function saveSystemConfig() {{
         alarmLimits.system.gateway_offline_warning_seconds = warningMinutes * 60;
         alarmLimits.system.gateway_offline_critical_seconds = criticalMinutes * 60;
         alarmLimits.system.gateway_offline_warning_alert_enabled = warningAlert;
+        const staleMinutes = parseInt(
+            document.getElementById('system-stale-minutes').value
+        );
+        const offlineMinutes = parseInt(
+            document.getElementById('system-offline-minutes').value
+        );
+        alarmLimits.system.stale_after_seconds = staleMinutes * 60;
+        alarmLimits.system.offline_after_seconds = offlineMinutes * 60;
         const putResp = await fetch('/api/admin/alarm-limits', {{
             method: 'PUT',
             headers: {{'Content-Type': 'application/json'}},

@@ -158,6 +158,8 @@ def _validate_alarm_limits(data: Any) -> None:
             "gateway_offline_warning_seconds",
             "gateway_offline_critical_seconds",
             "gateway_offline_warning_alert_enabled",
+            "stale_after_seconds",
+            "offline_after_seconds",
         }
         unknown = set(system) - allowed
         if unknown:
@@ -186,6 +188,20 @@ def _validate_alarm_limits(data: Any) -> None:
             raise ConfigValidationError(
                 "alarm_limits.json 'system.gateway_offline_warning_seconds' "
                 "must be < 'system.gateway_offline_critical_seconds'."
+            )
+        for name in ("stale_after_seconds", "offline_after_seconds"):
+            if name in system:
+                value = system[name]
+                if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
+                    raise ConfigValidationError(
+                        f"alarm_limits.json 'system.{name}' must be a positive integer."
+                    )
+        stale = system.get("stale_after_seconds")
+        offline = system.get("offline_after_seconds")
+        if stale is not None and offline is not None and stale >= offline:
+            raise ConfigValidationError(
+                "alarm_limits.json 'system.stale_after_seconds' "
+                "must be < 'system.offline_after_seconds'."
             )
 
     sensors = data.get("sensors")
