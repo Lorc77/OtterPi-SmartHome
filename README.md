@@ -62,7 +62,7 @@ Dashboard + Admin (Port 8091)
 | Service | Port | Datenbank | Zweck |
 |---|---:|---|---|
 | `otterpi.observer.service` | 8090 | `batches.sqlite3` | Dienstlich (LoggerPi) |
-| `otterpi-smarthome.observer.service` | 8091 | `smarthome.sqlite3` | Privat (SmartHome) |
+| `smarthome.observer.service` | 8091 | `smarthome.sqlite3` | Privat (SmartHome) |
 
 ---
 
@@ -168,20 +168,20 @@ pytest
 git diff --check
 ```
 
-Aktueller Stand: **442 Tests**, alle bestehen.
+Aktueller Stand: **437 Tests**, alle bestehen.
 
 ---
 
 ## Version
 
-Aktuelle Version: **v0.1.6**
+Aktuelle Version: **v0.1.7**
 
 Die Version wird geführt über:
 
-- `pyproject.toml` → `version = "0.1.6"`
-- `src/otterpi_smarthome/__init__.py` → `__version__ = "0.1.6"`
-- `src/otterpi_smarthome/dashboard_constants.py` → `VERSION = "v0.1.6"`
-- Git-Tag `v0.1.6`
+- `pyproject.toml` → `version = "0.1.7"`
+- `src/otterpi_smarthome/__init__.py` → `__version__ = "0.1.7"`
+- `src/otterpi_smarthome/dashboard_constants.py` → `VERSION = "v0.1.7"`
+- Git-Tag `v0.1.7`
 
 ---
 

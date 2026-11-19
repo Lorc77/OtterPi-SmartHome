@@ -27,8 +27,7 @@ def _contact_elapsed_seconds(contact: dict) -> int:
 class WeatherHubReader:
     """Adapter between WeatherHub Gateway packets and Core Measurements."""
 
-    def __init__(self, stale_after_seconds: float = 1800.0) -> None:
-        self.stale_after_seconds = stale_after_seconds
+    def __init__(self) -> None:
         self._latest_packets: dict[str, GatewayPacket] = {}
         self._reception_times: dict[str, str] = {}
         self._gateway_ips: dict[str, str] = {}
@@ -52,15 +51,6 @@ class WeatherHubReader:
             self._reception_times[packet.sensor_id] = received_at
             if client_ip is not None:
                 self._gateway_ips[packet.sensor_id] = client_ip
-
-    def _is_stale(self, sensor_id: str) -> bool:
-        """True, wenn der letzte Empfang für diesen Sensor zu lange her ist."""
-        if sensor_id not in self._reception_times:
-            return True
-
-        received_at = datetime.fromisoformat(self._reception_times[sensor_id])
-        age_seconds = (datetime.now(timezone.utc) - received_at).total_seconds()
-        return age_seconds > self.stale_after_seconds
 
     @property
     def gateway_timestamps(self) -> dict[str, int]:
@@ -152,8 +142,6 @@ class WeatherHubReader:
                 elif value_dict.get("overflow"):
                     validity = "invalid"
                     validity_reason = "overflow"
-                elif self._is_stale(sensor_id):
-                    validity = "stale"
 
                 measurement = Measurement(
                     value=value if validity in ("valid", "stale") else None,
@@ -245,8 +233,6 @@ class WeatherHubReader:
             elif value_dict.get("overflow"):
                 validity = "invalid"
                 validity_reason = "overflow"
-            elif sensor_id in self._reception_times and self._is_stale(sensor_id):
-                validity = "stale"
 
             measurement = Measurement(
                 value=value if validity in ("valid", "stale") else None,

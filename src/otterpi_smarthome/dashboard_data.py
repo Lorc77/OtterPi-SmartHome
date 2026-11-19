@@ -627,27 +627,6 @@ def _invalid_reason(measurements: dict, key: str, device_type: str) -> Optional[
     return _primary_measurement(measurements, key, device_type).get("validity_reason")
 
 
-def _stale_measurement(measurements: dict, key: str) -> Optional[dict]:
-    """Liefert das erste stale Measurement für ein Gerät."""
-    for k, m in measurements.items():
-        if k.startswith(f"{key}.") and m.get("validity") == "stale":
-            return m
-    return None
-
-
-def _stale_age(measurement: dict) -> Optional[str]:
-    """Liefert das Alter eines stale Measurements."""
-    measured_at = measurement.get("measured_at")
-    if not measured_at:
-        return None
-    dt = datetime.fromisoformat(measured_at)
-    age_seconds = (datetime.now(timezone.utc) - dt).total_seconds()
-    minutes = int(age_seconds // 60)
-    if minutes < 60:
-        return f"{minutes} min"
-    return f"{minutes // 60} h"
-
-
 def _contact_events(states: dict) -> list[dict]:
     """Extrahiert die Kontakt-Ereignisse aus den States."""
     events = []
@@ -744,13 +723,19 @@ def _device_chips(
     # 4) Immer sichtbare Warnungen (stale, battery low)
     if states.get("battery_low"):
         chips.append(("⚠ Battery low", "chip-warn"))
-    stale = _stale_measurement(measurements, key)
-    if stale is not None:
-        age = _stale_age(stale)
-        if age is not None:
-            chips.append((f"⚠ No data for {age}", "chip-warn"))
-        else:
-            chips.append(("⚠ Stale", "chip-warn"))
+    system = _load_alarm_limits_cached().get("system", {})
+    stale_after = system.get("stale_after_seconds", 1800)
+    offline_after = system.get("offline_after_seconds", 43200)
+    sensor_state = check_sensor_stale(batches, key, stale_after, offline_after)
+    if sensor_state == "stale":
+        latest = _latest_batch_for_device(batches, key)
+        created_at = latest.get("created_at")
+        if created_at:
+            age = (datetime.now(timezone.utc) - datetime.fromisoformat(created_at)).total_seconds()
+            minutes = int(age // 60)
+            chips.append((f"⚠ No data for {minutes} min", "chip-warn"))
+    elif sensor_state == "offline":
+        chips.append(("Offline", "chip-off"))
 
     # 5) State-Chips
     if states.get("water_contact"):

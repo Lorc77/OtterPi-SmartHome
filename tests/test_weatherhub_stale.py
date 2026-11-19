@@ -1,4 +1,4 @@
-"""Tests für die WeatherHub-Stale-Logik."""
+"""Tests fÃ¼r die WeatherHub-Stale-Logik."""
 
 from datetime import datetime, timedelta, timezone
 from typing import Any, Dict
@@ -39,7 +39,7 @@ class TestWeatherHubStaleLogic:
 
     def test_fresh_sensor_is_valid(self) -> None:
         """Ein Sensor, der gerade gesendet hat, ist valid."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        reader = WeatherHubReader()
         packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
 
         reader.update_from_packets([packet])
@@ -49,72 +49,18 @@ class TestWeatherHubStaleLogic:
         assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].validity == "valid"
         assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].value == -25.1
 
-    def test_stale_sensor_marks_measurements_as_stale(self, monkeypatch) -> None:
-        """Ein Sensor, der zu lange nicht gesendet hat, wird als stale markiert."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
-        packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
-
-        reader.update_from_packets([packet])
-
-        # Simuliere, dass 2 Stunden vergangen sind (länger als stale_after_seconds=1800)
-        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
-        reader._reception_times["017A5CD3FC1C"] = old_time.isoformat()
-
-        measurements = reader.read_measurements()
-
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_1"].validity == "stale"
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].validity == "stale"
-        # Wert bleibt bei stale erhalten
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].value == -25.1
-
-    def test_sensor_recovers_after_new_packet(self) -> None:
-        """Nach einem neuen Paket wird der Sensor wieder valid."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
-        packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
-
-        reader.update_from_packets([packet])
-
-        # Simuliere, dass 2 Stunden vergangen sind
-        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
-        reader._reception_times["017A5CD3FC1C"] = old_time.isoformat()
-
-        measurements = reader.read_measurements()
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].validity == "stale"
-
-        # Neues Paket kommt an
-        new_packet = self._make_id01_packet("017A5CD3FC1C", 23.5, -25.0)
-        reader.update_from_packets([new_packet])
-
-        measurements = reader.read_measurements()
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].validity == "valid"
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].value == -25.0
-
     def test_sensor_never_received_is_unavailable(self) -> None:
         """Ein Sensor, der nie empfangen wurde, hat keine Measurements."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        reader = WeatherHubReader()
 
         # Kein Packet empfangen
         measurements = reader.read_measurements()
 
         assert measurements == {}
 
-    def test_custom_stale_threshold(self) -> None:
-        """Der Stale-Schwellenwert ist konfigurierbar."""
-        reader = WeatherHubReader(stale_after_seconds=60)  # Nur 60 Sekunden
-        packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
-
-        reader.update_from_packets([packet])
-
-        # Simuliere, dass 2 Minuten vergangen sind (> 60 Sekunden)
-        old_time = datetime.now(timezone.utc) - timedelta(minutes=2)
-        reader._reception_times["017A5CD3FC1C"] = old_time.isoformat()
-
-        measurements = reader.read_measurements()
-        assert measurements["weatherhub_017a5cd3fc1c.temperature_1"].validity == "stale"
-
     def test_stale_within_threshold_is_valid(self) -> None:
         """Ein Sensor innerhalb des Schwellenwerts bleibt valid."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        reader = WeatherHubReader()
         packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
 
         reader.update_from_packets([packet])
@@ -127,33 +73,8 @@ class TestWeatherHubStaleLogic:
         assert measurements["weatherhub_017a5cd3fc1c.temperature_1"].validity == "valid"
         assert measurements["weatherhub_017a5cd3fc1c.temperature_2"].validity == "valid"
 
-    def test_id03_sensor_stale_keeps_humidity(self) -> None:
-        """ID03-Sensor: Auch Feuchte wird bei stale markiert und behält den Wert."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
-        packet = self._make_gateway_packet(
-            sensor_id="03469858AF14",
-            sensor_type=0x03,
-            decoded_values={
-                "temperature": {"value": 23.4, "error": False, "overflow": False},
-                "humidity": {"value": 42.0, "error": False, "overflow": False},
-            },
-        )
-
-        reader.update_from_packets([packet])
-
-        # Simuliere, dass 2 Stunden vergangen sind
-        old_time = datetime.now(timezone.utc) - timedelta(hours=2)
-        reader._reception_times["03469858AF14"] = old_time.isoformat()
-
-        measurements = reader.read_measurements()
-
-        assert measurements["weatherhub_03469858af14.temperature"].validity == "stale"
-        assert measurements["weatherhub_03469858af14.humidity"].validity == "stale"
-        assert measurements["weatherhub_03469858af14.temperature"].value == 23.4
-        assert measurements["weatherhub_03469858af14.humidity"].value == 42.0
-
     def test_read_state_battery_low(self) -> None:
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        reader = WeatherHubReader()
         packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
         packet = GatewayPacket(
             gateway_timestamp=packet.gateway_timestamp,
@@ -172,7 +93,7 @@ class TestWeatherHubStaleLogic:
         assert states["weatherhub_017a5cd3fc1c"]["battery_low"] is True
 
     def test_read_device_info(self) -> None:
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        reader = WeatherHubReader()
         packet = self._make_id01_packet("017A5CD3FC1C", 23.4, -25.1)
 
         reader.update_from_packets([packet], client_ip="141.51.190.121")
@@ -184,7 +105,7 @@ class TestWeatherHubStaleLogic:
         assert info["weatherhub_017a5cd3fc1c"]["gateway_timestamp"] == 1000
 
     def test_overflow_sets_validity_reason(self) -> None:
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        reader = WeatherHubReader()
         packet = self._make_gateway_packet(
             sensor_id="017A5CD3FC1C",
             sensor_type=0x01,
@@ -202,8 +123,8 @@ class TestWeatherHubStaleLogic:
         assert m.validity_reason == "overflow"
 
     def test_read_state_id04_water_contact(self) -> None:
-        """ID04: water_contact wird als State zurückgegeben."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        """ID04: water_contact wird als State zurÃ¼ckgegeben."""
+        reader = WeatherHubReader()
         packet = self._make_gateway_packet(
             sensor_id="041234567890",
             sensor_type=0x04,
@@ -222,8 +143,8 @@ class TestWeatherHubStaleLogic:
         assert states["weatherhub_041234567890"]["water_contact"] is True
 
     def test_read_state_id10_contact_open(self) -> None:
-        """ID10: contact_open wird als State zurückgegeben."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        """ID10: contact_open wird als State zurÃ¼ckgegeben."""
+        reader = WeatherHubReader()
         packet = self._make_gateway_packet(
             sensor_id="101234567890",
             sensor_type=0x10,
@@ -240,8 +161,8 @@ class TestWeatherHubStaleLogic:
         assert states["weatherhub_101234567890"]["contact_open"] is True
 
     def test_read_state_id10_previous_events(self) -> None:
-        """ID10: previous-Ereignisse werden als States zurückgegeben."""
-        reader = WeatherHubReader(stale_after_seconds=1800)
+        """ID10: previous-Ereignisse werden als States zurÃ¼ckgegeben."""
+        reader = WeatherHubReader()
         packet = self._make_gateway_packet(
             sensor_id="101234567890",
             sensor_type=0x10,

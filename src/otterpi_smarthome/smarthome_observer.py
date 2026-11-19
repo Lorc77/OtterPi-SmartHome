@@ -38,7 +38,6 @@ def main() -> None:
     weatherhub_port = int(_required("SMARTHOME_WEATHERHUB_PORT"))
     weatherhub_allowlist = _required("SMARTHOME_WEATHERHUB_ALLOWLIST")
     cloud_forward = os.environ.get("SMARTHOME_CLOUD_FORWARD_ENABLED", "0") == "1"
-    stale_after = float(os.environ.get("SMARTHOME_STALE_AFTER_SECONDS", "1800"))
 
     alert_db = os.environ.get(
         "SMARTHOME_ALERT_DB",
@@ -57,7 +56,7 @@ def main() -> None:
     )
     alert_engine.start()
 
-    reader = WeatherHubReader(stale_after_seconds=stale_after)
+    reader = WeatherHubReader()
     sequence_store = SequenceStore(sequence_file)
     bridge = SmartHomeBridge(
         store=store,

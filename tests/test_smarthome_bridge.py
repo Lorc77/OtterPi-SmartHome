@@ -1,4 +1,4 @@
-"""Tests für die SmartHomeBridge."""
+"""Tests fÃ¼r die SmartHomeBridge."""
 
 from otterpi_store import BatchStore
 from sequence_store import SequenceStore
@@ -22,7 +22,7 @@ def _make_id01_packet(sensor_id="017A5CD3FC1C", temp1=23.4, temp2=-25.1):
 
 def _make_bridge(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
-    reader = WeatherHubReader(stale_after_seconds=1800)
+    reader = WeatherHubReader()
     sequence_store = SequenceStore(tmp_path / "sequence")
     bridge = SmartHomeBridge(
         store=store,
@@ -84,7 +84,7 @@ def test_bridge_uses_sequence(tmp_path):
 
 def test_bridge_uses_logger_id(tmp_path):
     store = BatchStore(tmp_path / "otter.db")
-    reader = WeatherHubReader(stale_after_seconds=1800)
+    reader = WeatherHubReader()
     sequence_store = SequenceStore(tmp_path / "sequence")
     bridge = SmartHomeBridge(
         store=store,

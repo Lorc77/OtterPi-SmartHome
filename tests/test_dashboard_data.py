@@ -468,11 +468,8 @@ def test_stale_chip_always_shown_with_crit_limit(tmp_path, monkeypatch):
     old_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     batches = [
         _make_batch(
-            {
-                "atmoweb_101.humidity": _make_measurement(
-                    30.0, unit="percent", validity="stale", measured_at=old_time
-                )
-            },
+            {"atmoweb_101.humidity": _make_measurement(30.0, unit="percent", measured_at=old_time)},
+            created_at=old_time,
         )
     ]
     chips = _device_chips(batches, "atmoweb_101", "atmoweb")
@@ -495,11 +492,8 @@ def test_stale_and_battery_low_both_shown(tmp_path, monkeypatch):
     old_time = (datetime.now(timezone.utc) - timedelta(hours=2)).isoformat()
     batches = [
         _make_batch(
-            {
-                "weatherhub_0101f89974e0.temperature_2": _make_measurement(
-                    4.5, validity="stale", measured_at=old_time
-                )
-            },
+            {"weatherhub_0101f89974e0.temperature_2": _make_measurement(4.5, measured_at=old_time)},
+            created_at=old_time,
             states={"weatherhub_0101f89974e0": {"battery_low": True}},
         )
     ]

@@ -756,6 +756,32 @@ Neue gemeinsame Funktion `check_sensor_stale()` in `status.py`. Sie prüft die Z
 
 ---
 
+## DEC-027 — Stale-Logik aus `weatherhub.py` entfernt
+
+**Status:** Accepted
+**Datum:** 2026-11-19
+
+### Kontext
+
+`weatherhub.py` hatte noch `_is_stale` und `stale_after_seconds`. Im
+Produktivbetrieb wurde `validity="stale"` nie gesetzt, weil
+`measurements_from_packet` nur den aktuellen Sensor prüft.
+
+### Entscheidung
+
+`_is_stale` und `stale_after_seconds` aus `weatherhub.py` entfernt.
+`SMARTHOME_STALE_AFTER_SECONDS` aus `smarthome_observer.py` und
+`smarthome.env.example` entfernt.
+
+### Konsequenz
+
+- `weatherhub.py` ist nur noch Adapter (keine Stale-Logik).
+- Stale/Offline wird ausschließlich in `status.py` (`check_sensor_stale`)
+  berechnet.
+- `SMARTHOME_STALE_AFTER_SECONDS` ist obsolet.
+
+---
+
 ## Offene Entscheidungen
 
 Folgende Punkte sind derzeit bewusst noch offen:

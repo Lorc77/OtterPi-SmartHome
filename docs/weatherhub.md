@@ -226,21 +226,16 @@ Gateway-Paketen und Core Measurements.
   - `battery_low` (alle Sensoren)
   - `water_contact` (ID04)
   - `contact_open`, `contact_previous*_open`, `contact_*_since` (ID10)
-  - `counter`, `event_transmission` (alle Sensoren mit Status-Bytes)
 - `read_device_info()` — liefert Geräte-Infos (Sensor-ID, Typ,
   Gateway-IP, Gateway-Timestamp).
-
-### Stale-Logik
-
-Der Reader hat eine Stale-Logik. Wenn ein Sensor länger als
-`SMARTHOME_STALE_AFTER_SECONDS` (Default: 1800 s) keine Daten gesendet
-hat, wird sein letzter bekannter Wert als `stale` markiert.
 
 ### Validity
 
 - `valid` — Wert ist gültig.
 - `invalid` — Wert ist ungültig (`sensor_error` oder `overflow`).
-- `stale` — Wert ist veraltet (Sensor hat zu lange nicht gesendet).
+
+**Hinweis:** Stale/Offline wird nicht mehr im Reader berechnet, sondern
+in `status.py` (`check_sensor_stale`). Der Reader ist nur noch Adapter.
 
 ---
 

@@ -4,7 +4,7 @@
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
 **Stand:** 2026-11-18
-**Version:** v0.1.6
+**Version:** v0.1.7
 
 ---
 
@@ -152,7 +152,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ### Teststand
 
-**442 Tests, alle grün.** Ruff/Format clean.
+**437 Tests, alle grün.** Ruff/Format clean.
 
 ---
 
@@ -388,6 +388,13 @@ Danach: Phase 8 (Serverseitige Aggregation).
 - `admin.py`: System-Karte um „Stale after" / „Offline after" erweitert.
 - `dashboard_data.py`: Chips für `counter` und `event_transmission` entfernt (redundant).
 - `weatherhub.py`: `event_transmission` und `counter` nicht mehr als States (redundant).
+
+#### Bugfixes (v0.1.7) ✅
+- `weatherhub.py`: Stale-Logik entfernt (`_is_stale`, `stale_after_seconds`). Der Reader ist jetzt nur noch Adapter.
+- `dashboard_data.py`: `_stale_measurement` und `_stale_age` entfernt (toter Code).
+- `smarthome_observer.py`: `SMARTHOME_STALE_AFTER_SECONDS` entfernt.
+- `smarthome.env.example`: `SMARTHOME_STALE_AFTER_SECONDS` entfernt.
+- Tests: Stale-Tests entfernt, `test_dashboard_data.py` auf alte Batches umgestellt.
 
 ---
 

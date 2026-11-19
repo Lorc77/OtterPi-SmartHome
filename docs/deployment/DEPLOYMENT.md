@@ -81,7 +81,7 @@ Der Wrapper:
 4. führt `deploy/smarthome/install.sh` aus,
 5. installiert die Anwendung unter `/opt/otterpi-smarthome`,
 6. installiert die systemd-Service-Datei,
-7. aktiviert `otterpi-smarthome.observer.service`,
+7. aktiviert `smarthome.observer.service`,
 8. startet den Service neu,
 9. prüft dessen Zustand,
 10. schreibt den deployten Commit und die Version nach
@@ -91,7 +91,7 @@ Der Wrapper:
 Service:
 
 ```text
-otterpi-smarthome.observer.service
+smarthome.observer.service
 ```
 
 Konfiguration:
@@ -188,7 +188,6 @@ SMARTHOME_WEATHERHUB_HOST=0.0.0.0
 SMARTHOME_WEATHERHUB_PORT=3779
 SMARTHOME_WEATHERHUB_ALLOWLIST=192.168.178.<gateway-ip>
 SMARTHOME_CLOUD_FORWARD_ENABLED=1
-SMARTHOME_STALE_AFTER_SECONDS=1800
 
 PYTHONPATH=/opt/otterpi-smarthome:/opt/otterpi-smarthome/model
 SMTP_PASSWORD=<app-passwort>
@@ -210,14 +209,13 @@ SMTP_PASSWORD=<app-passwort>
 | `SMARTHOME_WEATHERHUB_PORT` | Listener-Port | `3779` |
 | `SMARTHOME_WEATHERHUB_ALLOWLIST` | Erlaubte Gateway-IPs (Komma-getrennt) | – |
 | `SMARTHOME_CLOUD_FORWARD_ENABLED` | Cloud-Forward an `www.data199.com` | `0` |
-| `SMARTHOME_STALE_AFTER_SECONDS` | Stale-Schwelle für WeatherHub-Sensoren | `1800` |
 | `SMTP_PASSWORD` | SMTP-Passwort (nur Secret) | – |
 
 ---
 
 ## 6. Service
 
-Die Service-Datei `otterpi-smarthome.observer.service`:
+Die Service-Datei `smarthome.observer.service`:
 
 ```ini
 [Unit]
@@ -247,7 +245,7 @@ WantedBy=multi-user.target
 Nach jedem Deployment:
 
 ```bash
-systemctl status otterpi-smarthome.observer.service --no-pager
+systemctl status smarthome.observer.service --no-pager
 ```
 
 Commit prüfen:
@@ -266,7 +264,7 @@ cat /opt/otterpi-smarthome/VERSION
 Zusätzlich:
 
 ```bash
-journalctl -u otterpi-smarthome.observer.service -n 100 --no-pager
+journalctl -u smarthome.observer.service -n 100 --no-pager
 ```
 
 Datenbank prüfen:
@@ -304,7 +302,7 @@ Das WeatherHub-Gateway muss auf den OtterPi zeigen:
 Nach der Konfiguration:
 
 ```bash
-sudo systemctl restart otterpi-smarthome.observer.service
+sudo systemctl restart smarthome.observer.service
 ```
 
 ---
@@ -357,7 +355,7 @@ Repository:
     main
 
 Version:
-    v0.1.2
+    v0.1.7
 
 Application Deployment:
     implementiert
@@ -384,5 +382,5 @@ Config:
     /var/lib/otterpi-smarthome/config/
 
 Service:
-    otterpi-smarthome.observer.service
+    smarthome.observer.service
 ```
