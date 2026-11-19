@@ -138,7 +138,7 @@ PYTHONPATH=/opt/otterpi-smarthome:/opt/otterpi-smarthome/model
 | Datenbank | `/var/lib/otterpi-smarthome/smarthome.sqlite3` |
 | Config | `/var/lib/otterpi-smarthome/config/` |
 | Env | `/etc/otterpi-smarthome/smarthome.env` |
-| Service | `otterpi-smarthome.observer.service` |
+| Service | `smarthome.observer.service` |
 
 ---
 

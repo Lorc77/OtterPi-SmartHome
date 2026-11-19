@@ -37,7 +37,7 @@ Zwei getrennte Services auf dem OtterPi:
 | Service | Port | Datenbank | Zweck |
 |---|---:|---|---|
 | `otterpi.observer.service` | 8090 | `batches.sqlite3` | Dienstlich (LoggerPi) |
-| `otterpi-smarthome.observer.service` | 8091 | `smarthome.sqlite3` | Privat (SmartHome) |
+| `smarthome.observer.service` | 8091 | `smarthome.sqlite3` | Privat (SmartHome) |
 
 ---
 
@@ -707,7 +707,7 @@ ID10 liefert mehr als nur den aktuellen Kontakt-Zustand: die letzten 4 Zustandsw
 ### Konsequenz
 
 - ID10 zeigt jetzt: aktuellen Zustand, letzte 4 Ereignisse, Counter, Event/Heartbeat.
-- Die Bedeutung von `event_transmission` (Event vs. Heartbeat) muss noch getestet werden.
+- **Verifiziert am 2026-11-19:** `event_transmission` ist immer `True` (auch bei Retries). Kein Heartbeat-Erkennungsmerkmal. Chip „Event" liefert keine Information.
 - `previous 3` hat kein `time` (nur `sensor`), wird aber trotzdem angezeigt.
 
 ---
@@ -779,6 +779,133 @@ Produktivbetrieb wurde `validity="stale"` nie gesetzt, weil
 - Stale/Offline wird ausschließlich in `status.py` (`check_sensor_stale`)
   berechnet.
 - `SMARTHOME_STALE_AFTER_SECONDS` ist obsolet.
+
+---
+
+## DEC-028 — ID10 sendet keine Heartbeats
+
+**Status:** Accepted
+**Datum:** 2026-11-19
+
+### Kontext
+
+Es war unklar, ob ID10 regelmäßig Heartbeats sendet. Die Herstellerapp
+zeigt den Sensor als „stale", wenn er offline ist — was vermuten ließ,
+dass der Sensor Heartbeats sendet.
+
+### Entscheidung
+
+Verifiziert per `tcpdump` (2 Stunden, 13 Pakete): **ID10 sendet keine
+Heartbeats.** Nur bei Ereignissen (Tür auf/zu). Die Herstellerapp hat
+eine reine Zeit-Logik.
+
+### Konsequenz
+
+- ID10 ist von `check_sensor_stale` ausgenommen (in `_device_status`),
+  weil er sonst nach `stale_after_seconds` fälschlich als stale markiert
+  würde.
+- Die Herstellerapp markiert ID10 nach X Minuten ohne Paket als „stale",
+  auch wenn die Tür zu ist. Für einen Türkontakt ist das streng genommen
+  „nutzlos", aber so ist das Verhalten.
+
+---
+
+## DEC-029 — ID10 sendet jedes Ereignis 3x (Retry)
+
+**Status:** Accepted
+**Datum:** 2026-11-19
+
+### Kontext
+
+Beim `tcpdump`-Mitschnitt (2 Stunden) zeigte sich: Jedes ID10-Ereignis
+wird 3x gesendet. Der `counter` bleibt gleich, der Gateway-Timestamp
+ändert sich (3–4 s Abstand).
+
+### Entscheidung
+
+Das 3x-Retry wird **nicht** dedupliziert (noch offen). Jedes Paket
+bekommt eine neue `batch_id` und `sequence`, also werden 3x dieselben
+Daten gespeichert.
+
+### Konsequenz
+
+- 3x dasselbe Ereignis in der DB (redundant).
+- Dedup ist offen (siehe Phase 7.5 in PROJECT-STATE.md).
+- Dedup-Kriterium: `sensor_id` + `counter` + `contact` + `previous`
+  innerhalb eines kurzen Zeitfensters (z.B. 10 s).
+
+---
+
+## DEC-030 — `stale_enabled` in der Alert-Engine auswerten (offen)
+
+**Status:** Proposed
+**Datum:** 2026-11-19
+
+### Kontext
+
+Die Checkbox „Stale alerts" in den Alarm-Limits setzt
+`alarm_limits["device"][device_key]["stale_enabled"]`, wird aber in
+`_check_sensors` nicht ausgewertet. Sie bewirkt derzeit nichts für die
+Alarmierung.
+
+### Entscheidung
+
+In der Stale/Offline-Schleife in `_check_sensors`
+`device_config.get(device_key, {}).get("stale_enabled", True)` prüfen
+und den Stale-Alert bei `False` unterdrücken.
+
+### Konsequenz
+
+- `alert_engine.py`: `_check_sensors` erweitert.
+- `stale_enabled: false` unterdrückt Stale-Alerts (nicht Offline-Alerts).
+
+---
+
+## DEC-031 — `offline` als `critical`-Variante von `stale` (offen)
+
+**Status:** Proposed
+**Datum:** 2026-11-19
+
+### Kontext
+
+Aktuell wird `offline` als `stale`-Alert mit `severity="warning"` und
+`reason="offline"` erzeugt. `offline` ist aber kritischer als `stale`.
+
+### Entscheidung
+
+In der Stale/Offline-Schleife:
+`severity = "critical" if sensor_state == "offline" else "warning"`.
+
+### Konsequenz
+
+- `alert_engine.py`: `_check_sensors` erweitert.
+- `offline` → `critical`, `stale` → `warning`.
+- `stale_enabled` unterdrückt nur `stale` (warning), nicht `offline`
+  (critical).
+
+---
+
+## DEC-032 — `max_open_seconds` entfernen (offen)
+
+**Status:** Proposed
+**Datum:** 2026-11-19
+
+### Kontext
+
+`max_open_seconds` wird in `config_store.py` validiert (erlaubt), aber
+nirgends ausgewertet — weder in `alert_engine.py` noch in `status.py`.
+Es ist ein Überbleibsel aus LoggerPi-Zeiten (dort gab es `door_open` mit
+`max_open_seconds`). Im SmartHome gibt es keine `door_open`-Dauer-Logik.
+
+### Entscheidung
+
+`max_open_seconds` aus `_validate_alarm_limits` und
+`_ALLOWED_LIMIT_KEYS` entfernen.
+
+### Konsequenz
+
+- `config_store.py`: `_validate_alarm_limits` bereinigt.
+- `_ALLOWED_LIMIT_KEYS`: `max_open_seconds` raus.
 
 ---
 

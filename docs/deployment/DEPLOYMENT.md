@@ -348,7 +348,7 @@ Diese Trennung ist absichtlich.
 
 ## 12. Aktueller Stand
 
-Stand 2026-11-17:
+Stand 2026-11-19:
 
 ```text
 Repository:

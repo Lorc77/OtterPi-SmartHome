@@ -136,15 +136,25 @@ Measurement-Pipeline übernommen.
 
 - **Measurements:** keine
 - **States:** `battery_low` (bool), `contact_open` (bool),
-  `contact_previous*_open` (bool), `contact_*_since` (Unix-Timestamp),
-  `counter` (int), `event_transmission` (bool)
+  `contact_previous*_open` (bool), `contact_*_since` (Unix-Timestamp)
 - **Payload:** Status (2 Byte), Contact current (2 Byte),
   Contact previous (2 Byte), Contact previous 1 (2 Byte),
   Contact previous 2 (2 Byte), Contact previous 3 (1 Byte)
 
 **Hinweis:** ID10 liefert die letzten 5 Zustandswechsel (current +
-previous 1–3). `time_unit`/`elapsed_value` werden in einen Unix-Timestamp
-umgerechnet (`_contact_timestamp`). `previous 3` hat kein `time`.
+previous 1–3). `time_unit`/`elapsed_value` werden **kumulativ** in einen
+Unix-Timestamp umgerechnet (`_contact_elapsed_seconds`): `current_since =
+gateway_timestamp - current.elapsed`, `previous_since = current_since -
+previous.elapsed`, usw. `previous 3` hat kein `time`.
+
+**Verifiziert am 2026-11-19 (tcpdump, 2 Stunden, 13 Pakete):**
+- ID10 sendet **keine Heartbeats**. Nur bei Ereignissen (Tür auf/zu).
+- Jedes Ereignis wird **3x gesendet** (Retry). Der `counter` bleibt
+  gleich, der Gateway-Timestamp ändert sich (3–4 s Abstand).
+- `event_transmission` ist **immer `True`** (Bit 6 gesetzt), auch bei
+  Retries. Kein Heartbeat-Erkennungsmerkmal.
+- `counter` und `event_transmission` werden **nicht** als States
+  weitergegeben (seit v0.1.6, redundant).
 
 ---
 
@@ -293,10 +303,16 @@ blockiert den lokalen Empfang nicht.
 
 - **ID07:** Wird dekodiert, aber im Dashboard noch nicht unterstützt
   (4 Measurements, eigene Karten-Logik nötig).
-- **ID10 `event_transmission`:** Die Bedeutung (Event vs. Heartbeat) ist
-  noch nicht verifiziert.
+- **ID10 `event_transmission`:** Ist immer `True` (auch bei Retries).
+  Kein Heartbeat-Erkennungsmerkmal. Chip „Event" liefert keine
+  Information.
 - **ID10 `previous 3`:** Hat kein `time` (nur `sensor`), wird aber
   angezeigt.
+- **ID10-Retries:** Jedes Ereignis wird 3x gesendet. Dedup ist nicht
+  implementiert (3x dasselbe Ereignis in der DB).
+- **ID10-Stale:** ID10 ist von `check_sensor_stale` ausgenommen, weil er
+  sonst nach `stale_after_seconds` fälschlich als stale markiert würde
+  (er sendet nur bei Ereignissen).
 - **Gateway-Deduplizierung:** Wenn mehrere Gateways dieselben Sensordaten
   empfangen, werden die Daten doppelt verarbeitet. Eine Deduplizierung
   ist nicht implementiert.

@@ -3,7 +3,7 @@
 **Projekt:** OtterPi-SmartHome
 **Rolle:** Privates, unabhängiges SmartHome-Monitoring auf dem OtterPi
 **Abgrenzung:** Läuft parallel zu `loggerpi-otterpi` (dienstlich). Keine gemeinsame Datenbank, kein gemeinsamer Service, kein gemeinsames Dashboard.
-**Stand:** 2026-11-18
+**Stand:** 2026-11-19
 **Version:** v0.1.7
 
 ---
@@ -205,7 +205,35 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ---
 
-## 7. Dateien
+## 7. Sensor-Erkenntnisse (verifiziert)
+
+### ID10 — Tür-/Fensterkontakt
+
+**Verifiziert am 2026-11-19 per `tcpdump` (2 Stunden, 13 Pakete):**
+
+- **ID10 sendet keine Heartbeats.** Nur bei Ereignissen (Tür auf/zu).
+- **Jedes Ereignis wird 3x gesendet** (Retry). Der `counter` bleibt dabei gleich, der Gateway-Timestamp ändert sich (3–4 s Abstand).
+- **Die Herstellerapp hat eine reine Zeit-Logik.** Sie markiert den Sensor als „stale", wenn seit X Minuten kein Paket kam — auch wenn die Tür zu ist. Für einen Türkontakt ist das streng genommen „nutzlos", aber so ist das Verhalten.
+- **`event_transmission` ist immer `True`** (Bit 6 gesetzt), auch bei Retries. Der Chip „Event" liefert daher keine Information.
+- **`previous 3` hat kein `time`** (nur `sensor`), wird aber angezeigt.
+
+**Konsequenz für die Stale-Logik:** ID10 ist von `check_sensor_stale` ausgenommen (in `_device_status`), weil er sonst nach `stale_after_seconds` fälschlich als stale markiert würde.
+
+**Konsequenz für die DB:** 3x dasselbe Ereignis wird 3x gespeichert (verschiedene `batch_id`/`sequence`). Dedup ist offen (siehe Phase 7.5).
+
+### ID01, ID02, ID03, ID04, ID0E
+
+- Senden regelmäßig (Heartbeats), verifiziert.
+- `battery_low` wird als State geliefert.
+- ID04: `water_contact` wird als State geliefert (seit v0.1.4).
+
+### ID07
+
+- Wird dekodiert, aber im Dashboard nicht unterstützt (4 Measurements, eigene Karten-Logik nötig).
+
+---
+
+## 8. Dateien
 
 ### Wiederverwendet (unverändert)
 
@@ -239,7 +267,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ---
 
-## 8. Testing
+## 9. Testing
 
 ### Unit-Tests
 
@@ -261,7 +289,7 @@ Die Deinstallation ist im `update.sh` integriert (`uninstall` /
 
 ---
 
-## 9. Deployment
+## 10. Deployment
 
 ### Reihenfolge
 
@@ -281,7 +309,7 @@ ls -la /var/lib/otterpi-smarthome/
 
 ---
 
-## 10. Nächster konkreter Schritt
+## 11. Nächster konkreter Schritt
 
 **Phase 5.5 (nginx + Extern)** oder **Phase 7 (Refactoring)** — je nach Priorität.
 
@@ -289,7 +317,7 @@ Danach: Phase 8 (Serverseitige Aggregation).
 
 ---
 
-## 11. Fahrplan
+## 12. Fahrplan
 
 ### Erledigt
 
@@ -433,6 +461,16 @@ Danach: Phase 8 (Serverseitige Aggregation).
   - [ ] `otterpi.py` / `otterpi_store.py` umbenennen → `smarthome.py` / `smarthome_store.py` (betrifft `install.sh`, `smarthome_observer.py`, Tests).
 - [ ] `weatherhub_id07` im Dashboard unterstützen (4 Measurements, eigene Karten-Logik).
 
+#### Phase 7.5 — Sensor-Fixes (ID10, Stale, Dedup)
+
+- [ ] **`stale_enabled` in der Alert-Engine auswerten.** Die Checkbox „Stale alerts" in den Alarm-Limits setzt `alarm_limits["device"][device_key]["stale_enabled"]`, wird aber in `_check_sensors` nicht ausgewertet. Fix: In der Stale/Offline-Schleife `device_config.get(device_key, {}).get("stale_enabled", True)` prüfen und den Stale-Alert bei `False` unterdrücken.
+- [ ] **`offline` als `critical`-Variante von `stale`.** Aktuell wird `offline` als `stale`-Alert mit `severity="warning"` und `reason="offline"` erzeugt. Fix: `severity = "critical" if sensor_state == "offline" else "warning"`.
+- [ ] **`max_open_seconds` entfernen.** Wird in `config_store.py` validiert, aber nirgends ausgewertet (toter Code aus LoggerPi-Zeiten). Entfernen aus `_validate_alarm_limits` und `_ALLOWED_LIMIT_KEYS`.
+- [ ] **`stale_after_seconds` pro Sensor entfernen.** Wird in `_ALLOWED_LIMIT_KEYS` erlaubt, aber nicht ausgewertet. Entweder auswerten oder entfernen.
+- [ ] **ID10-Dedup.** Jedes Ereignis wird 3x gesendet (Retry). Dedup-Kriterium: `sensor_id` + `counter` + `contact` + `previous` innerhalb eines kurzen Zeitfensters (z.B. 10 s). Verhindert 3x dasselbe Ereignis in der DB.
+- [ ] **ID10-Anzeige (eigene Karte).** Aktuell zeigt die Kachel „–" für Temperatur. Eine eigene Karte (nur Status + Chips, ohne Temperatur) wäre der nächste Schritt.
+- [ ] **`event_transmission`-Chip.** Zeigt immer „Event" (keine Information). Entweder weglassen oder nur bei `False` („Heartbeat") anzeigen.
+
 #### Phase 8 — Serverseitige Aggregation für lange Zeiträume
 - [ ] **Problem:** Detailseiten laden aktuell alle Batches in den RAM (bei 30d und 3 Sensoren ~20000 Pakete). Das ist RAM-intensiv und skaliert nicht.
 - [ ] **Ziel:** Aggregation in SQL (`GROUP BY` Zeitfenster), sodass nur ~500 Punkte geladen werden statt ~20000.
@@ -448,8 +486,8 @@ Danach: Phase 8 (Serverseitige Aggregation).
 
 ### Nächster konkreter Schritt
 
-**Phase 5.5 (nginx + Extern)** oder **Phase 7 (Refactoring)** — je nach Priorität.
+**Phase 7.5 (Sensor-Fixes)** — `stale_enabled`, `offline` als critical, `max_open_seconds`, ID10-Dedup.
 
-Danach: Phase 8 (Serverseitige Aggregation).
+Danach: Phase 5.5 (nginx + Extern), Phase 7 (Refactoring), Phase 8 (Aggregation).
 
 **Hinweis:** Der CI-Fix (`ubuntu-22.04`) ist nur eine Zwischenlösung. Mit Phase 7 (3.13-only) kann `ubuntu-latest` wieder verwendet werden.
